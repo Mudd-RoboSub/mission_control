@@ -29,7 +29,7 @@ class GoToDepth(smach.State):
 			if(abs(self.heave.plantState - self.heave.setpoint) < .025):
 				rospy.logwarn("GoToDepth: at depth waiting for accuracy")
 				successCount += 1	
-				if(successCount > 100):
+				if(successCount > 50):
 					done = True
 			elif time() -tStart > userdata.timeout:
 				return 'abort'

@@ -23,10 +23,10 @@ class MonitorStart(smach.State):
                 rate = rospy.Rate(20)
                 
                 while not rospy.is_shutdown():
-                        if self.start is not None and self.start == self.target:
-                                return 'True' if self.start else 'False'
+                        if self.start is not None and self.start == self.target: 
+		               return 'True' if self.start else 'False'
                         rate.sleep() 
-
+		
 class Reset(smach.State):
 
         def __init__(self):

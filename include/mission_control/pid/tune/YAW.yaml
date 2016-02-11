@@ -2,8 +2,8 @@
 YAW:
   IMU_POS: [0.004,0,0.0003]
   IMU_POS_TOPIC: '/imu/zOrientation'
-  IMU_ACCEL: [-1,-1,-1]
-  IMU_ACCEL_TOPIC: 'none'
+  IMU_ACCEL: [0,0,0]
+  IMU_ACCEL_TOPIC: '/imu/zVel'
   DEPTH: [-1,-1,-1]
   DEPTH_TOPIC: 'none'
   CAM_FRONT: [-1,-1,-1]

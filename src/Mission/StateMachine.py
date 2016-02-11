@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import rospy
 import smach
 import smach_ros
@@ -65,7 +64,7 @@ def main():
 	Mission.userdata.done = False
 	Mission.userdata.count = 0
 	Mission.userdata.numReps = 4
-	Mission.userdata.depth = 0.4
+	Mission.userdata.depth = 0.5 
 	Mission.userdata.timeout = 234523413
 	Mission.userdata.zero = 0
 	Mission.userdata.false = False
@@ -86,12 +85,12 @@ def main():
 											'abort':'abort'},
 							   remapping={'depth':'depth', 'increment':'false'})
 		smach.StateMachine.add('CorrectToZero',RotateTo(yaw),
-							transitions={'success':'Buoy','abort':'abort'},
+							transitions={'success':'Gate','abort':'abort'},
 							remapping={'timeout':'timeout','angle':'zero'})									 
 		smach.StateMachine.add('Buoy', buoy, transitions={'success':'success','abort':'abort'},
 							remapping={'angle_in':'gateAngle'})											
 
-		smach.StateMachine.add('Gate', gate, transitions={'success':'Buoy','abort':'abort'},
+		smach.StateMachine.add('Gate', gate, transitions={'success':'success','abort':'abort'},
 							remapping={'angle_out':'gateAngle'})
 
 		smach.StateMachine.add("DedReckon", Move(surge, sway), transitions={'success':'success'}, remapping={'angle':'zero','speed':'speed','moveTime':'timeout'})

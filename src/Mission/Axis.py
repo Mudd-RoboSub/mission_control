@@ -80,7 +80,7 @@ class Axis:
 		avg = sum / 10
 		rospy.loginfo("Setting heave zero on {} to {}".format(self._input, avg))
 		self._zeros[self._input] = avg
-
+		self.setSetpoint(0)
     def goTo(self, target, delay = 1):
         self.setSetpoint(target + self._zeros[self._input])
         tStart = rospy.get_time()
