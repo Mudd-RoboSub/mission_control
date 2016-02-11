@@ -70,7 +70,6 @@ Pid::Pid(int axis, int input)
   updatePlantSub();
 
   if(axisTopic == "yaw"){
-    ROS_WARN("HERE, YAW");
     plantStateSub_ = nh_.subscribe("yawPlantStateNorm", 0, &Pid::plantStateCallback, this);
   }
 
@@ -145,7 +144,7 @@ Pid::Pid(int axis, int input)
     executeController(timePassed);
 
     if(hi % 200 == 0)
-      ROS_INFO("Setpoint: %f, Plant State: %f, cE: %f", (float)setpoint_, (float)plantState_, (float)controlEffort_);
+      ROS_INFO("AXIS %s: Setpoint: %f, Plant State: %f, cE: %f", axis_.c_str(), (float)setpoint_, (float)plantState_, (float)controlEffort_);
     ++hi;
     //publish the congtrol effort
     if(enabled_){
@@ -166,13 +165,11 @@ Pid::Pid(int axis, int input)
 
 void Pid::updatePlantSub(){
   //yaw is handled elsewhere
-  ROS_INFO("AXIS %s", axis_.c_str());
 
-
+  
   std::string path = axis_ + "/" + inputType_ + "_TOPIC";
   std::string newTopic = topicMap_[path];
   nh_.setParam("TOPICS/" + axis_, newTopic);
-
   if(newTopic == "none"){
 	  ROS_WARN("Invalid combination of axis and input type. "
 	           "PID won't work. "
@@ -187,8 +184,7 @@ void Pid::updatePlantSub(){
     return;
   }
   plantStateSub_ = nh_.subscribe(newTopic, 0, &Pid::plantStateCallback, this);
-  ROS_INFO("Remapped %s plant state to %s", axis_.c_str(), newTopic.c_str()	);
-
+  ROS_INFO("Remapped %s plant state to topic %s", axis_.c_str(), newTopic.c_str()	);
 
 }
 
@@ -214,8 +210,6 @@ void Pid::executeController(double timePassed){
   integral = kI_ * errorIntegral_;
   derivative = kD_ * FIRDeriv_;
   
-  if((int)(timePassed * 100) % 100 == 0 && axis_ == "YAW")
-    ROS_INFO("PROP %f, INT %f, DER %f", proportional, integral, derivative);
   derivFile << error_.at(0) << "," <<  proportional << "," << integral << "," << derivative << "\n";
   if(integral > .3) integral = .3;
   if(derivative > .3) derivative = .3;
@@ -432,11 +426,8 @@ void Pid::saveParams(){
   }
 
   path = getConfigPath();
-  ROS_INFO("path: %s", path.c_str());
   paramMap_.at(path) = {kP_, kI_, kD_};
-  for(auto i : paramMap_.at(path)){
-    ROS_INFO("value: %f", i);
-  }
+ 
 }
 
 

@@ -31,7 +31,7 @@ class Axis:
         paramName = "/TOPICS/"
         paramName += self._axis.upper()
         self.plantTopic = rospy.get_param(paramName)
-        rospy.logwarn("THE TOPIC IS {}".format(self.plantTopic))
+        rospy.logwarn("Changing topic for axis {} to {}".format(self._axis, self.plantTopic))
         self._sub = rospy.Subscriber(self.plantTopic, Float64, self.plantStateCallback)
 
     def setEnabled(self, val=True):
@@ -75,7 +75,6 @@ class Axis:
 
     def setZero(self, zero=None):
 		sum = 0.0
-		rospy.logwarn("HEREHEREHERHE {}".format(self.plantTopic))
 		for i in range(10):
 			sum += rospy.wait_for_message(self.plantTopic, Float64).data
 		avg = sum / 10
@@ -98,15 +97,13 @@ class Axis:
     def setInput(self, val):
         rospy.loginfo(self._inputs[val])
 
-        if(not self._enabled):
-            rospy.logwarn("Make sure the loop is enabled")
         rospy.wait_for_service('InputTypeService')
         try:
             enabledServiceProxy = rospy.ServiceProxy('InputTypeService', InputService)
             res = enabledServiceProxy(self._axis, self._inputs[val])
             self._input = val
         except rospy.ServiceException, e:
-            print "Service call failed: %s" %e
+            rospy.logwarn("Set input service call failed: %s", e)
 	    return False
         self.updatePlantTopic()
         return res.success

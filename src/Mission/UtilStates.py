@@ -53,14 +53,11 @@ class Zero(smach.State):
 class Dead(smach.State):
         def __init__(self):
                 smach.State.__init__(self, outcomes=['success', 'kill'])
-                self.a = 0
         def execute(self, userdata):
                 self.__init__()
-                rospy.logwarn("the value of a %d", self.a)
-                self.a = 1
                 try:
                         while not rospy.is_shutdown():
                                 rospy.sleep(2)
                                 return 'success'
                 except PreemptException:
-                        print("HERHE:LKEHR:LIHEN:LINFS:OHI*E:LNKSDF:HIE")
+			pass

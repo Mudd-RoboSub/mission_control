@@ -44,7 +44,6 @@ void Axis::setSetpoint(const double& val, const size_t& stabilityBand){
   stabilityBand_ = stabilityBand;
   std_msgs::Float64 msg;
   msg.data = val;
-  std::cout << "VAL" << val << std::endl;
   setpointPub_.publish(msg);
 }
 

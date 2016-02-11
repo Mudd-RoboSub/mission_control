@@ -6,7 +6,6 @@ from std_msgs.msg import Float64
 
 class Yaw:
     def __init__(self):
-        rospy.loginfo("HEREHERE")
 
         self.setpoint = 0
         self.plantState = 0
@@ -16,7 +15,6 @@ class Yaw:
         self.plantSub = rospy.Subscriber("/none", Float64, self.plantCB)
         while(not self.updatePlantTopic()):
             rospy.sleep(0.01)
-        print("almost")
 
         self.plantPub = rospy.Publisher('/yawPlantStateNorm', Float64, queue_size=5)
         self.setpointPub = rospy.Publisher('/yawSetpointNorm', Float64, queue_size=5, latch=True)
@@ -42,15 +40,6 @@ class Yaw:
     def getNormalizedPlant(self):
 	
         self.updatePlantTopic()
-        distCW = abs(self.setpoint - self.plantState) % 360
-        distCCW = -1*abs((360 - (self.setpoint - self.plantState))%360)
-        #print("CW: {} CCW: {} CW < CCW? {}".format(distCW, distCCW, abs(distCW) < abs(distCCW)))
-	if(abs(distCW) < abs(distCCW)):
-            code1 = distCW
-        else:
-            code1 = distCCW
-	if code1>180:
-		rospy.logwarn("BROKEEEEEEEEEEEEEEN")
 	absDist = abs(self.setpoint-self.plantState) % 360
 	d = min(absDist, 360 - absDist)
 	expected = (self.setpoint+d) % 360

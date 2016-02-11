@@ -27,7 +27,7 @@ class GoToDepth(smach.State):
 			while not rospy.is_shutdown() and time() - tStart < 1:
 				loopRate.sleep()
 			if(abs(self.heave.plantState - self.heave.setpoint) < .025):
-				rospy.logwarn("9")
+				rospy.logwarn("GoToDepth: at depth waiting for accuracy")
 				successCount += 1	
 				if(successCount > 100):
 					done = True

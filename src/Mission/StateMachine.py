@@ -45,14 +45,18 @@ def main():
 	yaw.setInput("IMU_POS")
 	
 	sway.setInput("IMU_POS")
+	sway.setSetpoint(0)
 	sway.setEnabled(False)	
-
+	
+	surge.setInput("IMU_POS")
+	surge.setSetpoint(0)
+	surge.setEnabled(0)
         #yaw.setSetpoint(0)	
 	done = False
 	direction = 1
 	timeout = 31415926
 
-	rospy.logwarn("complete loading")
+	rospy.loginfo("Loaded PID Controllers")
 
          ######################################## Mission code ############################################	
 
@@ -67,7 +71,6 @@ def main():
 	Mission.userdata.false = False
 	Mission.userdata.gateAngle = 0	
 	Mission.userdata.speed = 0.31415
-	rospy.logwarn("BEFORE CONTAINER")
 	# direction:=1 for clockwise
 	gate = Gate.StateMachine(surge, sway, yaw, timeout, 2.75,direction=1)
 	buoy = Buoy.StateMachine(surge,sway,heave,yaw,timeout)
@@ -103,7 +106,7 @@ def main():
 
 	def outcomeCB(outcome_map):
 		if outcome_map['MonitorKill'] == 'False':
-			print("AAAAAAAAAAAAAAHHHHHHHHHHHHHHHH")
+			rospy.logwarn("Kill switch triggered!")
 			return 'kill'
 		return 'success'
 
@@ -132,15 +135,11 @@ def main():
 	ready = False
         while not ready:
                 ready = rospy.wait_for_message("/start", Bool)
-                print("READY", ready)
-	rospy.logwarn("AFTER CONTAINER")
+        rospy.loginfo("Ready to execute task")
 	sis = smach_ros.IntrospectionServer('server_name', Top, '/SM_ROOT')
 	sis.start()
-	for i in range(100):
-		print("INTITALIZED")
 	# Execute SMACH plan
         startPub = rospy.Publisher("thrustEnable", Bool, latch=True)	
-	rospy.logwarn("SHOULD HAVE PUBLISHED BY NOW")
 	yaw.setEnabled(False)
 	yaw.setControlEffort(0)
  	startPub.publish(data=False)	
