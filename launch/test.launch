@@ -1,0 +1,14 @@
+<launch>
+
+  <rosparam file="$(find mission_control)/include/mission_control/pid/tune.yaml" />
+
+
+  <node name="pid" pkg="mission_control" type="pid_axis" output="screen">
+    <param name="axis" value="0"/>
+    <param name="inputType" value="0"/>
+  </node>
+
+
+  <node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure" />
+
+</launch>
