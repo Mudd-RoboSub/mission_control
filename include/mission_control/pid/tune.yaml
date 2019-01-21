@@ -1,7 +1,7 @@
 SURGE:
   IMU_POS: [0.48,0.66,0.32]
-  IMU_ACCEL: [0.1,0.1,0.1]
-  DEPTH: [0.1,0.1,0.1]
+  IMU_ACCEL: [0.12,0.6,0.28]
+  DEPTH: [0.44,0.7,0.88]
   CAM_FRONT: [0.1,0.1,0.1]
   CAM_BOTTOM: [0.1,0.1,0.1]
 SWAY:
