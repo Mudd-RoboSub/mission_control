@@ -125,6 +125,7 @@ private:
   std::unordered_map<std::string, std::vector<double>> paramMap_;
   void getParamsFromMap();
 
+  bool isFirstCallBack_;
 
   //private methods
   inline double getError(){return setpoint_ - plantState_;}

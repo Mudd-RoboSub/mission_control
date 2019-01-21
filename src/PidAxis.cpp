@@ -2,7 +2,7 @@
 
 //todo: add parameters, work on launch sequence
 
-PidAxis::PidAxis(){
+PidAxis::PidAxis() : isFirstCallBack_(false){
 
   nhPriv_ = ros::NodeHandle("~");
 
@@ -25,17 +25,21 @@ PidAxis::PidAxis(){
   nhPriv_.param<int>("inputType", inputTypeInt_, -1);
   nhPriv_.param<int>("axis", axisInt_, -1);
 
+  ROS_WARN("%d", inputTypeInt_);
+
   if(inputTypeInt_ == -1) inputType_ = "OTHER_INPUT";
   else inputType_ = inputs_.at(inputTypeInt_);
 
   if(axisInt_ == -1) axis_ = "OTHER_AXIS";
   else axis_ = axes_.at(axisInt_);
 
-
+  //So the first time is registered as an input
+  prevInputType_ = "OTHER_INPUT";
 
   ROS_INFO("Axis: %s (%d). inputType_: %s (%d)", axis_.c_str(), axisInt_, inputType_.c_str(), inputTypeInt_);
 
   loadParamsFromFile();
+  getParamsFromMap();
 
   dynamic_reconfigure::Server<mission_control::PidAxisConfig> config_server;
   dynamic_reconfigure::Server<mission_control::PidAxisConfig>::CallbackType f;
@@ -168,7 +172,8 @@ void PidAxis::updateSetpoint(const double& setpoint){
 
 void PidAxis::updateInputType(std::string input){
   inputType_ = input;
-  loadParamsFromFile();
+  prevInputType_ = inputType_;
+  getParamsFromMap();
 }
 
 void PidAxis::loadParamsFromFile(){
@@ -208,17 +213,28 @@ void PidAxis::getParamsFromMap(){
   ROS_INFO("Loaded default parameters for %s configuration:"
            "Kp=%f, Ki=%f, Kd=%f", path.c_str(), kP_, kI_, kD_);
 
-
 }
+
+
+//if a slider has changed, update the val
 
 void PidAxis::reconfigureCallback(mission_control::PidAxisConfig& config, uint32_t level){
 
+
+
+  inputType_ = inputs_.at(config.inputType);
   if(config.Save){
     saveParams();
     config.Save = false;
     return;
   }
-
+  else if(inputType_ != prevInputType_){
+    updateInputType(inputType_);
+    config.Kp = kP_;
+    config.Kd = kD_;
+    config.Ki = kI_;
+    return;
+  }
 
   kP_ = config.Kp;
   kI_ = config.Ki;
@@ -226,21 +242,11 @@ void PidAxis::reconfigureCallback(mission_control::PidAxisConfig& config, uint32
   ROS_INFO("Pid reconfigure request: Kp: %f, Ki: %f, Kd: %f", kP_, kI_, kD_);
 
 
-  inputType_ = inputs_.at(config.inputType);
-
-  if(inputType_ != prevInputType_){
-    updateInputType(inputType_);
-    prevInputType_ = inputType_;
-  }
-
-  if(config.Save) saveParams();
-
 
 }
 
 
 std::string PidAxis::getConfigPath(){
-  std::string axisString, inputString;
 
   std::string path = axis_ + "/" + inputType_;
 
