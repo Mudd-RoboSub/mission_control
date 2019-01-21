@@ -29,15 +29,21 @@
 #include <std_msgs/Float64.h>
 #include <mission_control/PidAxisConfig.h>
 #include <dynamic_reconfigure/server.h>
+#include <unordered_map>
+#include <fstream>
+#include <iostream>
+#include <ros/package.h>
+
 
 #endif
 
 class PidAxis{
 
 private:
-  //I need this right away so declaring first is neccesary
-  enum INPUT_TYPE{IMU_POS, IMU_ACCEL, DEPTH, CAM_FRONT, CAM_BOTTOM, OTHER_INPUT};
-  enum AXIS{SURGE, SWAY, HEAVE, ROLL, PITCH, YAW, OTHER_AXIS};
+
+  std::vector<std::string> axes_ = {"SURGE", "SWAY", "HEAVE", "ROLL", "PITCH", "YAW"};
+  std::vector<std::string> inputs_ = {"IMU_POS", "IMU_ACCEL", "DEPTH", "CAM_FRONT", "CAM_BOTTOM"};
+
 
 public:
 
@@ -48,10 +54,10 @@ public:
   //no assignment operator either
   PidAxis operator=(const PidAxis&) const = delete;
 
-  //All stack memory, so default destructor is fine
-  ~PidAxis() = default;
+  //Saves parameters to file. Requires clean exit.
+  ~PidAxis();
 
-  void updateInputType(INPUT_TYPE input);
+  void updateInputType(std::string input);
 
   void updatePlantState(const double&);
   void updateSetpoint(const double&);
@@ -65,11 +71,11 @@ private:
   //central PID parameters
   double kP_, kD_, kI_;
 
-  INPUT_TYPE inputType_ = OTHER_INPUT;
-  INPUT_TYPE prevInputType_ = OTHER_INPUT;
+  std::string inputType_ = "OTHER_INPUT";
+  std::string prevInputType_ = "OTHER_INPUT";
   int inputTypeInt_ = -1; //for rosparam usage, immediately casts as enum
 
-  AXIS axis_ = OTHER_AXIS;
+  std::string axis_ = "OTHER_AXIS";
   int axisInt_ = -1;
 
   double controlEffort_ = 0;
@@ -116,6 +122,8 @@ private:
 
   ///Get new kP, kI, kD values from config.
   void loadParamsFromFile();
+  std::unordered_map<std::string, std::vector<double>> paramMap_;
+  void getParamsFromMap();
 
 
   //private methods
@@ -133,7 +141,9 @@ private:
 
   void saveParams();
 
+  std::string getConfigPath();
 
+  void writeToFile();
 };
 
 
