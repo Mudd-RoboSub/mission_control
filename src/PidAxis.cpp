@@ -25,13 +25,15 @@ PidAxis::PidAxis(){
   nhPriv_.param<int>("inputType", inputTypeInt_, -1);
   nhPriv_.param<int>("axis", axisInt_, -1);
 
-  if(inputTypeInt_ == -1) inputType_ = OTHER_INPUT;
-  else inputType_ = (INPUT_TYPE) inputTypeInt_;
+  if(inputTypeInt_ == -1) inputType_ = "OTHER_INPUT";
+  else inputType_ = inputs_.at(inputTypeInt_);
 
-  if(axisInt_ == -1) axis_ = OTHER_AXIS;
-  else axis_ = (AXIS) axisInt_;
+  if(axisInt_ == -1) axis_ = "OTHER_AXIS";
+  else axis_ = axes_.at(axisInt_);
 
-  ROS_INFO("Axis: %d. inputType_: %d", axisInt_, inputType_);
+
+
+  ROS_INFO("Axis: %s (%d). inputType_: %s (%d)", axis_.c_str(), axisInt_, inputType_.c_str(), inputTypeInt_);
 
   loadParamsFromFile();
 
@@ -164,64 +166,49 @@ void PidAxis::updateSetpoint(const double& setpoint){
   setpointChanged_ = true;
 }
 
-void PidAxis::updateInputType(INPUT_TYPE input){
+void PidAxis::updateInputType(std::string input){
   inputType_ = input;
   loadParamsFromFile();
 }
 
 void PidAxis::loadParamsFromFile(){
-  ROS_INFO("1");
-  if(axis_ == OTHER_AXIS || inputType_ == OTHER_INPUT){
+
+  if(axis_ == "OTHER_AXIS" || inputType_ == "OTHER_INPUT"){
     ROS_WARN("Using non-recognized axis or input type. Setting constants to 0");
     kP_ = 0;
     kI_ = 0;
     kD_ = 0;
   }
-  ROS_INFO("2");
 
   std::vector<double> values;
-  std::string axisString, inputString;
+  std::string path;
   ROS_INFO("3");
 
-  switch(axis_){
-    case(SURGE): axisString = "SURGE";
-    case(SWAY): axisString = "SWAY";
-    case(HEAVE): axisString = "HEAVE";
-    case(ROLL): axisString = "ROLL";
-    case(PITCH): axisString = "PITCH";
-    case(YAW): axisString = "YAW";
+  for(auto axis : axes_){
+    for(auto input : inputs_){
+      path = axis + "/" + input;
+      nh_.getParam(path, values);
+      std::pair<std::string, std::vector<double>> mapPair(path, values);
+
+      paramMap_.insert(mapPair);
+    }
   }
 
-  switch(inputType_){
-    case(IMU_POS): inputString = "IMU_POS";
-    case(IMU_ACCEL): inputString = "IMU_ACCEL";
-    case(DEPTH): inputString = "DEPTH";
-    case(CAM_FRONT): inputString = "CAM_FRONT";
-    case(CAM_BOTTOM): inputString = "CAM_BOTTOM";
-  }
+}
 
-  ROS_INFO("4");
+void PidAxis::getParamsFromMap(){
 
-  std::string path = axisString + "/" + inputString;
-
-  ROS_INFO("path %s", path.c_str());
-
-  int test;
-  nh_.getParam(path.c_str(), values);
-  for(auto i : values) ROS_INFO("value %f:", i);
-
-  ROS_INFO("5");
+  std::string path = getConfigPath();
+  std::vector<double> values = paramMap_.at(path);
 
   kP_ = values.at(0);
   kI_ = values.at(1);
   kD_ = values.at(2);
-  ROS_INFO("6");
+
+  ROS_INFO("Loaded default parameters for %s configuration:"
+           "Kp=%f, Ki=%f, Kd=%f", path.c_str(), kP_, kI_, kD_);
 
 
-
-
-  ROS_INFO("Updated parameters to the following: kP = %f, kI = %f, kD = %f",
-            kP_, kI_, kD_);
 }
 
 void PidAxis::reconfigureCallback(mission_control::PidAxisConfig& config, uint32_t level){
@@ -239,7 +226,7 @@ void PidAxis::reconfigureCallback(mission_control::PidAxisConfig& config, uint32
   ROS_INFO("Pid reconfigure request: Kp: %f, Ki: %f, Kd: %f", kP_, kI_, kD_);
 
 
-  inputType_ = (INPUT_TYPE) config.inputType;
+  inputType_ = inputs_.at(config.inputType);
 
   if(inputType_ != prevInputType_){
     updateInputType(inputType_);
@@ -251,8 +238,54 @@ void PidAxis::reconfigureCallback(mission_control::PidAxisConfig& config, uint32
 
 }
 
+
+std::string PidAxis::getConfigPath(){
+  std::string axisString, inputString;
+
+  std::string path = axis_ + "/" + inputType_;
+
+  ROS_INFO("returning path: %s", path.c_str());
+
+  return path;
+}
+
 void PidAxis::saveParams(){
-  ROS_INFO("Saving params (not implemented, placeholder)");
+  ROS_INFO("Saving parameters to map");
+  std::string path;
+  path = getConfigPath();
+  ROS_INFO("path: %s", path.c_str());
+  paramMap_.at(path) = {kP_, kI_, kD_};
+  for(auto i : paramMap_.at(path)){
+    ROS_INFO("value: %f", i);
+  }
+}
+
+
+void PidAxis::writeToFile(){
+  std::ofstream tuneFile;
+  std::string filePath = ros::package::getPath("mission_control") + "/include/mission_control/pid/tune.yaml";
+  tuneFile.open(filePath);
+
+  for(auto i : axes_){
+    tuneFile << i << ":" << std::endl;
+    for(auto j : inputs_){
+      std::string paramPath = i + "/" + j;
+      ROS_INFO("Path to file: %s", paramPath.c_str());
+      std::vector<double> newParams = paramMap_.at(paramPath);
+      double kP, kI, kD;
+      kP = newParams.at(0);
+      kI = newParams.at(1);
+      kD = newParams.at(2);
+      tuneFile << "  " << j << ": [" << kP << "," << kI << "," << kD << "]" << std::endl;
+    }
+  }
+
+  tuneFile.close();
+
+}
+
+PidAxis::~PidAxis(){
+  writeToFile();
 }
 
 int main(int argc, char** argv){

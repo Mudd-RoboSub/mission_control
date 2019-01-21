@@ -1,45 +1,36 @@
-#Format:
-#  axis:
-#    input: [Kp, Ki, Kd]
-#    ...
-
-
-#Notes: Must include all input types for all, regardless of if you use them
-#       Use -1 to indicate things you don't use
-hi: 10
 SURGE:
-  IMU_POS: [0.0, 1.0, -1.0]
-  IMU_ACCEL: [-1.0, -1.0, -1.0]
-  DEPTH: [-1.0, -1.0, -1.0]
-  CAM_FRONT: [-1.0, -1.0, -1.0]
-  CAM_BOTTOM: [-1.0, -1.0, -1.0]
+  IMU_POS: [0.48,0.66,0.32]
+  IMU_ACCEL: [0.1,0.1,0.1]
+  DEPTH: [0.1,0.1,0.1]
+  CAM_FRONT: [0.1,0.1,0.1]
+  CAM_BOTTOM: [0.1,0.1,0.1]
 SWAY:
-  IMU_POS: [-1.0, -1.0, -1.0]
-  IMU_ACCEL: [-1.0, -1.0, -1.0]
-  DEPTH: [-1.0, -1.0, -1.0]
-  CAM_FRONT: [-1.0, -1.0, -1.0]
-  CAM_BOTTOM: [-1.0, -1.0, -1.0]
+  IMU_POS: [0.1,0.1,0.1]
+  IMU_ACCEL: [0.1,0.1,0.1]
+  DEPTH: [0.1,0.1,0.1]
+  CAM_FRONT: [0.1,0.1,0.1]
+  CAM_BOTTOM: [0.1,0.1,0.1]
 HEAVE:
-  IMU_POS: [-1.0, -1.0, -1.0]
-  IMU_ACCEL: [-1.0, -1.0, -1.0]
-  DEPTH: [-1.0, -1.0, -1.0]
-  CAM_FRONT: [-1.0, -1.0, -1.0]
-  CAM_BOTTOM: [-1.0, -1.0, -1.0]
+  IMU_POS: [0.1,0.1,0.1]
+  IMU_ACCEL: [0.1,0.1,0.1]
+  DEPTH: [0.1,0.1,0.1]
+  CAM_FRONT: [0.1,0.1,0.1]
+  CAM_BOTTOM: [0.1,0.1,0.1]
 ROLL:
-  IMU_POS: [-1.0, -1.0, -1.0]
-  IMU_ACCEL: [-1.0, -1.0, -1.0]
-  DEPTH: [-1.0, -1.0, -1.0]
-  CAM_FRONT: [-1.0, -1.0, -1.0]
-  CAM_BOTTOM: [-1.0, -1.0, -1.0]
+  IMU_POS: [0.1,0.1,0.1]
+  IMU_ACCEL: [0.1,0.1,0.1]
+  DEPTH: [0.1,0.1,0.1]
+  CAM_FRONT: [0.1,0.1,0.1]
+  CAM_BOTTOM: [0.1,0.1,0.1]
 PITCH:
-  IMU_POS: [-1.0, -1.0, -1.0]
-  IMU_ACCEL: [-1.0, -1.0, -1.0]
-  DEPTH: [-1.0, -1.0, -1.0]
-  CAM_FRONT: [-1.0, -1.0, -1.0]
-  CAM_BOTTOM: [-1.0, -1.0, -1.0]
+  IMU_POS: [0.1,0.1,0.1]
+  IMU_ACCEL: [0.1,0.1,0.1]
+  DEPTH: [0.1,0.1,0.1]
+  CAM_FRONT: [0.1,0.1,0.1]
+  CAM_BOTTOM: [0.1,0.1,0.1]
 YAW:
-  IMU_POS: [-1.0, -1.0, -1.0]
-  IMU_ACCEL: [-1.0, -1.0, -1.0]
-  DEPTH: [-1.0, -1.0, -1.0]
-  CAM_FRONT: [-1.0, -1.0, -1.0]
-  CAM_BOTTOM: [-1.0, -1.0, -1.0]
+  IMU_POS: [0.1,0.1,0.1]
+  IMU_ACCEL: [0.1,0.1,0.1]
+  DEPTH: [0.1,0.1,0.1]
+  CAM_FRONT: [0.1,0.1,0.1]
+  CAM_BOTTOM: [0.1,0.1,0.1]
