@@ -13,6 +13,9 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   rospy
   std_msgs
+	actionlib_msgs
+	genmsg
+	actionlib
 )
 
 ## System dependencies are found with CMake's conventions
@@ -56,24 +59,26 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+	DIRECTORY srv
+  FILES
+  UpdateService.srv
+)
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(
+	DIRECTORY action
+  FILES
+  Fibonacci.action
+)
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+	actionlib_msgs
+
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -108,6 +113,7 @@ catkin_package(
 #  LIBRARIES mission_control
 #  CATKIN_DEPENDS dynamic_reconfigure roscpp roslib rospy std_msgs
 #  DEPENDS system_lib
+	CATKIN_DEPENDS actionlib_msgs
 )
 
 ###########
@@ -208,4 +214,16 @@ add_dependencies(pid_axis
 	${PROJECT_NAME}_EXPORTED_TARGETS
   ${pid_axis_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
+)
+
+add_executable(fibonacci_servers src/FibonacciServer.cpp)
+
+target_link_libraries(
+  fibonacci_servers
+  ${catkin_LIBRARIES}
+)
+
+add_dependencies(
+  fibonacci_servers
+  ${mission_control_EXPORTED_TARGETS}
 )
