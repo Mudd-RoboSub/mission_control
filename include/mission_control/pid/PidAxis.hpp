@@ -23,19 +23,18 @@
 #ifndef PIDAXIS_H
 #define PIDAXIS_H
 
-#ifndef ROS
-#define ROS
+
 #include <ros/ros.h>
 #include <std_msgs/Float64.h>
 #include <mission_control/PidAxisConfig.h>
+#include <mission_control/UpdateService.h>
 #include <dynamic_reconfigure/server.h>
 #include <unordered_map>
 #include <fstream>
 #include <iostream>
 #include <ros/package.h>
+#include "mission_control/pid/PidUtils.hpp"
 
-
-#endif
 
 class PidAxis{
 
@@ -57,10 +56,8 @@ public:
   //Saves parameters to file. Requires clean exit.
   ~PidAxis();
 
-  void updateInputType(std::string input);
 
-  void updatePlantState(const double&);
-  void updateSetpoint(const double&);
+
 
 
 private:
@@ -119,6 +116,8 @@ private:
   std_msgs::Float64 controlEffortMsg_;
   ros::Publisher controlEffortPub_;
 
+  ros::ServiceServer updateServiceServer_;
+
 
   ///Get new kP, kI, kD values from config.
   void loadParamsFromFile();
@@ -131,7 +130,7 @@ private:
   inline double getError(){return setpoint_ - plantState_;}
 
   ///do all the PID stuff
-  void updateController(double timePassed);
+  void executeController(double timePassed);
 
   ///updates buffers and filters. The filters were taken DIRECTLY from the ROS
   ///PID package, which in turn cites Julius O. Smith III, Intro. to
@@ -145,6 +144,16 @@ private:
   std::string getConfigPath();
 
   void writeToFile();
+
+
+  bool updateController(mission_control::UpdateService::Request &req,
+                        mission_control::UpdateService::Response &res);
+  //pack these all into a service.
+  void updateInputType(std::string input);
+  void updatePlantState(const double&);
+  void updateSetpoint(const double&);
+
+
 };
 
 
