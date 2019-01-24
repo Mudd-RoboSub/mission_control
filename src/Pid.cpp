@@ -1,6 +1,6 @@
-#include "mission_control/pid/PidAxis.hpp"
+#include "mission_control/pid/Pid.hpp"
 
-PidAxis::PidAxis() : isFirstCallBack_(false){
+Pid::Pid() : isFirstCallBack_(false), enabled_(true){
 
 
   nhPriv_ = ros::NodeHandle("~");
@@ -9,11 +9,6 @@ PidAxis::PidAxis() : isFirstCallBack_(false){
     ROS_INFO("Time is zero. Waiting for the beginning of time.");
     sleep(1);
   }
-
-
-
-  //Register publisher
-  controlEffortPub_ = nh_.advertise<std_msgs::Float64>(controlEffortTopic_, 1);
 
   // Get params if specified in launch file or as params on command-line, set
   // defaults
@@ -27,6 +22,7 @@ PidAxis::PidAxis() : isFirstCallBack_(false){
   nhPriv_.param<int>("axis", axisInt_, -1);
 
 
+
   if(inputTypeInt_ == -1) inputType_ = "OTHER_INPUT";
   else inputType_ = inputs_.at(inputTypeInt_);
 
@@ -36,38 +32,39 @@ PidAxis::PidAxis() : isFirstCallBack_(false){
   //So the first time is registered as an input
   prevInputType_ = "OTHER_INPUT";
 
-  ROS_INFO("I");
+
+  //Register publisher
+  controlEffortPub_ = nh_.advertise<std_msgs::Float64>(controlEffortTopic_, 1);
 
   loadParamsFromFile();
-
-  ROS_INFO("J");
-
   getParamsFromMap();
 
-  ROS_INFO("K");
-
-  dynamic_reconfigure::Server<mission_control::PidAxisConfig> config_server;
-  dynamic_reconfigure::Server<mission_control::PidAxisConfig>::CallbackType f;
+  dynamic_reconfigure::Server<mission_control::PidConfig> config_server;
+  dynamic_reconfigure::Server<mission_control::PidConfig>::CallbackType f;
 
 
-  f = boost::bind(&PidAxis::reconfigureCallback, this, _1, _2);
+  f = boost::bind(&Pid::reconfigureCallback, this, _1, _2);
   config_server.setCallback(f);
 
 
   //service to update stuff
-  updateServiceServer_ = nh_.advertiseService("update_controller", &PidAxis::updateController, this);
+  updateServiceServer_ = nh_.advertiseService("update_controller", &Pid::updateController, this);
 
 
 
   while(ros::ok()){
 
+
+    double timePassed = ros::Time::now().toSec() - prevTime_.toSec();
+
     //get change in time
-    if(prevTime_.isZero()){
+    if(timePassed == 0){
+      //do bare minimum maintenance
+      ros::Duration(.05).sleep();
       prevTime_ = ros::Time::now();
       continue;
     }
 
-    double timePassed = ros::Time::now().toSec() - prevTime_.toSec();
     prevTime_ = ros::Time::now();
 
     bool shouldUpdate = false;
@@ -88,13 +85,19 @@ PidAxis::PidAxis() : isFirstCallBack_(false){
       plantStateChanged_ = false;
     }
 
-    if(shouldUpdate) executeController(timePassed);
+    if(shouldUpdate){
+      prevControlEffort_ = controlEffort_;
+      executeController(timePassed);
+    }
 
     //publish the congtrol effort
-    controlEffortMsg_.data = controlEffort_;
-    controlEffortPub_.publish(controlEffortMsg_);
-
-    ros::spinOnce();
+    if(enabled_ && prevControlEffort_ != controlEffort_){
+      controlEffortMsg_.data = controlEffort_;
+      controlEffortPub_.publish(controlEffortMsg_);
+    }
+    else{
+      errorIntegral_ = 0;
+    }
 
     //cpu protecc
     ros::Duration(0.001).sleep();
@@ -103,11 +106,10 @@ PidAxis::PidAxis() : isFirstCallBack_(false){
 }
 
 //calculates control effort
-void PidAxis::executeController(double timePassed){
+void Pid::executeController(double timePassed){
 
   error_.at(1) = error_.at(0);
   error_.at(0) = getError();
-
 
   if(timePassed == 0){
     ROS_ERROR("No time change detected between loops.");
@@ -123,7 +125,7 @@ void PidAxis::executeController(double timePassed){
 }
 
 //updates the error and it's integral and deriviatives. Adds neccesary filters.
-void PidAxis::updateErrors(double timePassed){
+void Pid::updateErrors(double timePassed){
 
   //if not specified by user. Again, not my code.
   if (cutoffFrequency_ != -1)
@@ -163,29 +165,27 @@ void PidAxis::updateErrors(double timePassed){
 
    //riemann that boi
    errorIntegral_ += timePassed * error_.at(0);
-
-
 }
 
 
-void PidAxis::updatePlantState(const double& state){
+void Pid::updatePlantState(const double& state){
   plantState_ = state;
   plantStateChanged_ = true;
 }
 
-void PidAxis::updateSetpoint(const double& setpoint){
+void Pid::updateSetpoint(const double& setpoint){
   setpointStep_[0] = setpointStep_[1];
   setpointStep_[1] = setpoint;
   setpointChanged_ = true;
 }
 
-void PidAxis::updateInputType(std::string input){
+void Pid::updateInputType(std::string input){
   prevInputType_ = inputType_;
   inputType_ = input;
   getParamsFromMap();
 }
 
-void PidAxis::loadParamsFromFile(){
+void Pid::loadParamsFromFile(){
 
   if(axis_ == "OTHER_AXIS" || inputType_ == "OTHER_INPUT"){
     ROS_WARN("Using non-recognized axis or input type. Setting constants to 0");
@@ -210,7 +210,7 @@ void PidAxis::loadParamsFromFile(){
 
 }
 
-void PidAxis::getParamsFromMap(){
+void Pid::getParamsFromMap(){
 
   if(axis_ == "OTHER_AXIS" || inputType_ == "OTHER_INPUT"){
     ROS_WARN("Invalid axis or input detected. Setting constants to 0");
@@ -235,11 +235,11 @@ void PidAxis::getParamsFromMap(){
 
 //if a slider has changed, update the val
 
-void PidAxis::reconfigureCallback(mission_control::PidAxisConfig& config, uint32_t level){
+void Pid::reconfigureCallback(mission_control::PidConfig& config, uint32_t level){
 
   inputType_ = inputs_.at(config.inputType);
   ROS_INFO("INteger %d, inputType_ %s", config.inputType, inputType_.c_str());
-  
+
   if(config.Save){
     saveParams();
     config.Save = false;
@@ -269,7 +269,7 @@ void PidAxis::reconfigureCallback(mission_control::PidAxisConfig& config, uint32
 }
 
 
-std::string PidAxis::getConfigPath(){
+std::string Pid::getConfigPath(){
 
   std::string path = axis_ + "/" + inputType_;
 
@@ -278,7 +278,7 @@ std::string PidAxis::getConfigPath(){
   return path;
 }
 
-void PidAxis::saveParams(){
+void Pid::saveParams(){
   ROS_INFO("Saving parameters to map");
   std::string path;
 
@@ -296,7 +296,7 @@ void PidAxis::saveParams(){
 }
 
 
-void PidAxis::writeToFile(){
+void Pid::writeToFile(){
   std::ofstream tuneFile;
   std::string filePath = ros::package::getPath("mission_control") + "/include/mission_control/pid/tune.yaml";
   tuneFile.open(filePath);
@@ -322,7 +322,7 @@ void PidAxis::writeToFile(){
 }
 
 //service callback
-bool PidAxis::updateController(mission_control::UpdateService::Request &req,
+bool Pid::updateController(mission_control::UpdateService::Request &req,
                       mission_control::UpdateService::Response &res){
 
 
@@ -349,6 +349,10 @@ bool PidAxis::updateController(mission_control::UpdateService::Request &req,
     updateSetpoint(req.value);
   }
 
+  else if(param == PidUtils::ENABLED){
+    enabled_ = (bool)req.value;
+  }
+
   else{
     ROS_ERROR("Input parameter (integer value %d) not accepted. Update aborted",
               param);
@@ -363,14 +367,14 @@ bool PidAxis::updateController(mission_control::UpdateService::Request &req,
 
 }
 
-PidAxis::~PidAxis(){
+Pid::~Pid(){
   writeToFile();
 }
 
 int main(int argc, char** argv){
-  ros::init(argc, argv, "PidAxisNode");
+  ros::init(argc, argv, "PidNode");
 
-  PidAxis a;
+  Pid a;
   ros::spin();
   return 0;
 }

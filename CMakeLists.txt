@@ -96,7 +96,7 @@ generate_messages(
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
 generate_dynamic_reconfigure_options(
-  cfg/PidAxis.cfg
+  cfg/Pid.cfg
 )
 
 ###################################
@@ -111,7 +111,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES mission_control
-#  CATKIN_DEPENDS dynamic_reconfigure roscpp roslib rospy std_msgs
+   CATKIN_DEPENDS dynamic_reconfigure roscpp roslib rospy std_msgs
 #  DEPENDS system_lib
 	CATKIN_DEPENDS actionlib_msgs
 )
@@ -207,13 +207,13 @@ include_directories(
 
 
 
-add_executable(pid_axis src/PidAxis.cpp)
+add_executable(pid_axis src/Pid.cpp)
 target_link_libraries(pid_axis ${catkin_LIBRARIES})
 
 add_dependencies(pid_axis
 	${PROJECT_NAME}_EXPORTED_TARGETS
-  ${pid_axis_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
+  ${PROJECT_NAME}_gencfg
 )
 
 add_executable(fibonacci_servers src/FibonacciServer.cpp)
