@@ -1,4 +1,4 @@
-#must be one of "PlantState" "Setpoint" or "InputType"
+#use PidUtils params enum to select parameter.
 int32 param
 float64 value
 ---

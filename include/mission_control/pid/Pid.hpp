@@ -38,8 +38,8 @@ private:
 
 public:
 
-  Pid();
-
+  Pid(int axis = -1, int input = -1, std::string effortTopic = "effort",
+      std::string plantTopic = "plant");
   //no copy constructor, shouldn't be used
   Pid(const Pid&) = delete;
   //no assignment operator either
@@ -104,9 +104,10 @@ private:
   double c_ = 1.;
 
   //control effort/plant state publishing
-  std::string controlEffortTopic_;
+  std::string controlEffortTopic_, plantStateTopic_;
   std_msgs::Float64 controlEffortMsg_;
   ros::Publisher controlEffortPub_;
+  ros::Subscriber plantStateSub_;
 
   ros::ServiceServer updateServiceServer_;
 
@@ -144,6 +145,8 @@ private:
   void updateInputType(std::string input);
   void updatePlantState(const double&);
   void updateSetpoint(const double&);
+
+  void plantStateCallback(const std_msgs::Float64& msg);
 
 
 };

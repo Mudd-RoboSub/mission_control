@@ -66,11 +66,10 @@ add_service_files(
 )
 
 ## Generate actions in the 'action' folder
-add_action_files(
-	DIRECTORY action
-  FILES
-  Fibonacci.action
-)
+#add_action_files(
+#	DIRECTORY action
+#  FILES
+#)
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
@@ -216,14 +215,10 @@ add_dependencies(pid_axis
   ${PROJECT_NAME}_gencfg
 )
 
-add_executable(fibonacci_servers src/FibonacciServer.cpp)
-
-target_link_libraries(
-  fibonacci_servers
-  ${catkin_LIBRARIES}
-)
-
-add_dependencies(
-  fibonacci_servers
-  ${mission_control_EXPORTED_TARGETS}
+add_executable(axis src/Axis.cpp)
+target_link_libraries(axis ${catkin_LIBRARIES})
+add_dependencies(axis
+  ${PROJECT_NAME}_EXPORTED_TARGETS
+  ${catkin_EXPORTED_TARGETS}
+  ${PROJECT_NAME}_gencfg
 )
