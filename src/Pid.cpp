@@ -1,7 +1,8 @@
 #include "mission_control/pid/Pid.hpp"
 
-Pid::Pid() : isFirstCallBack_(false), enabled_(true){
-
+Pid::Pid(int axis, int input, std::string effortTopic, std::string plantTopic)
+         : isFirstCallBack_(false), enabled_(true), controlEffortTopic_(effortTopic),
+         plantStateTopic_(plantTopic){
 
   nhPriv_ = ros::NodeHandle("~");
 
@@ -10,6 +11,7 @@ Pid::Pid() : isFirstCallBack_(false), enabled_(true){
     sleep(1);
   }
 
+
   // Get params if specified in launch file or as params on command-line, set
   // defaults
   nhPriv_.param<double>("Kp", kP_, 1.0);
@@ -17,10 +19,8 @@ Pid::Pid() : isFirstCallBack_(false), enabled_(true){
   nhPriv_.param<double>("Kd", kD_, 0.0);
   nhPriv_.param<double>("windup_limit", windupLimit_, 100.0);
   nhPriv_.param<double>("cutoff_frequency", cutoffFrequency_, -1.0);
-  nhPriv_.param<std::string>("control_effort_topic", controlEffortTopic_, "effort");
-  nhPriv_.param<int>("inputType", inputTypeInt_, -1);
-  nhPriv_.param<int>("axis", axisInt_, -1);
-
+  nhPriv_.param<int>("inputType", inputTypeInt_, input);
+  nhPriv_.param<int>("axis", axisInt_, axis);
 
 
   if(inputTypeInt_ == -1) inputType_ = "OTHER_INPUT";
@@ -32,13 +32,24 @@ Pid::Pid() : isFirstCallBack_(false), enabled_(true){
   //So the first time is registered as an input
   prevInputType_ = "OTHER_INPUT";
 
-
-  //Register publisher
+  //Register publisher for control effort
   controlEffortPub_ = nh_.advertise<std_msgs::Float64>(controlEffortTopic_, 1);
 
+  //and the subscriber for plant state
+  plantStateSub_ = nh_.subscribe(plantStateTopic_, 1, &Pid::plantStateCallback, this);
+
+  if(!plantStateSub_){
+    ROS_ERROR_STREAM("Plant state subscriber initialization failed. Quitting");
+    ros::shutdown();
+    exit(EXIT_FAILURE);
+  }
+
+  //load in relevant parameters from yaml file, select appropriate set based on
+  //config
   loadParamsFromFile();
   getParamsFromMap();
 
+  //service registration
   dynamic_reconfigure::Server<mission_control::PidConfig> config_server;
   dynamic_reconfigure::Server<mission_control::PidConfig>::CallbackType f;
 
@@ -98,6 +109,8 @@ Pid::Pid() : isFirstCallBack_(false), enabled_(true){
     else{
       errorIntegral_ = 0;
     }
+
+    ros::spinOnce();
 
     //cpu protecc
     ros::Duration(0.001).sleep();
@@ -238,7 +251,7 @@ void Pid::getParamsFromMap(){
 void Pid::reconfigureCallback(mission_control::PidConfig& config, uint32_t level){
 
   inputType_ = inputs_.at(config.inputType);
-  ROS_INFO("INteger %d, inputType_ %s", config.inputType, inputType_.c_str());
+  ROS_INFO("Integer %d, inputType_ %s", config.inputType, inputType_.c_str());
 
   if(config.Save){
     saveParams();
@@ -266,6 +279,10 @@ void Pid::reconfigureCallback(mission_control::PidConfig& config, uint32_t level
   kD_ = config.Kd;
   ROS_INFO("Pid reconfigure request: Kp: %f, Ki: %f, Kd: %f", kP_, kI_, kD_);
 
+}
+
+void Pid::plantStateCallback(const std_msgs::Float64& msg){
+  updatePlantState(msg.data);
 }
 
 
@@ -340,15 +357,10 @@ bool Pid::updateController(mission_control::UpdateService::Request &req,
       updateInputType(inputs_.at(value));
     }
   }
-
-  else if(param == PidUtils::PLANT_STATE){
-    updatePlantState(req.value);
-  }
-
   else if(param == PidUtils::SETPOINT){
+    ROS_INFO("Set setpoint to %f", (float)req.value);
     updateSetpoint(req.value);
   }
-
   else if(param == PidUtils::ENABLED){
     enabled_ = (bool)req.value;
   }
@@ -374,7 +386,7 @@ Pid::~Pid(){
 int main(int argc, char** argv){
   ros::init(argc, argv, "PidNode");
 
-  Pid a;
+  Pid a(0, 0, "effort", "plant");
   ros::spin();
   return 0;
 }

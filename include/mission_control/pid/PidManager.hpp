@@ -1,3 +1,8 @@
+//stamps out six axes
+//provides mux for calling all the functions
+//additional functionality such as go-to-depth which only applied to a specific axis
+
+
 #ifndef PID_MANAGER
 #define PID_MANAGER
 
@@ -14,6 +19,5 @@ private:
 
 }
 
-class Axis
 
 #endif
