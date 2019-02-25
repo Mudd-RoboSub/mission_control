@@ -13,10 +13,10 @@
 class Axis{
 
 public:
-  Axis() = delete;
+  Axis() = default;
 
   //note: intentionally not by const referance; want a copy
-  Axis(std::string axisName, ros::NodeHandle nh);
+  Axis(std::string axisName, const ros::NodeHandle& nh);
 
   //should call the service
   void updateController(const PidUtils::UpdateParams& param, const double& val);
@@ -31,10 +31,9 @@ public:
   //for manually setting thrust
   void setPercentThrust(const double& val);
 
-
   // void setInputType(const PidUtils&::Inputs);
 
-  bool isStable(const double& stableMargin = .1);
+  inline bool isStable(const double& stableMargin = .1){return true;}
 
 
 private:
@@ -65,6 +64,8 @@ private:
   ros::ServiceClient client;
   ros::NodeHandle nh_;
   ros::Publisher plantPub_;
+
+
 
 
 

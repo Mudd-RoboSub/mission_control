@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
 	actionlib_msgs
+	message_generation
 	genmsg
 	actionlib
 )
@@ -108,7 +109,7 @@ generate_dynamic_reconfigure_options(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+   INCLUDE_DIRS include
 #  LIBRARIES mission_control
    CATKIN_DEPENDS dynamic_reconfigure roscpp roslib rospy std_msgs
 #  DEPENDS system_lib
@@ -208,16 +209,27 @@ include_directories(
 
 add_executable(pid_axis src/Pid.cpp)
 target_link_libraries(pid_axis ${catkin_LIBRARIES})
-
 add_dependencies(pid_axis
 	${PROJECT_NAME}_EXPORTED_TARGETS
   ${catkin_EXPORTED_TARGETS}
   ${PROJECT_NAME}_gencfg
 )
 
-add_executable(axis src/Axis.cpp)
-target_link_libraries(axis ${catkin_LIBRARIES})
-add_dependencies(axis
+# add_executable(axis src/Axis.cpp)
+# target_link_libraries(axis ${catkin_LIBRARIES})
+# add_dependencies(axis
+#   ${PROJECT_NAME}_EXPORTED_TARGETS
+#   ${catkin_EXPORTED_TARGETS}
+#   ${PROJECT_NAME}_gencfg
+# )
+
+add_executable(pid_manager
+	src/PidManager.cpp
+	src/Axis.cpp
+)
+target_link_libraries(pid_manager ${catkin_LIBRARIES})
+add_dependencies(pid_manager
+	axis
   ${PROJECT_NAME}_EXPORTED_TARGETS
   ${catkin_EXPORTED_TARGETS}
   ${PROJECT_NAME}_gencfg
