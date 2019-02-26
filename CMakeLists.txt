@@ -63,7 +63,6 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
 	DIRECTORY srv
   FILES
-  UpdateService.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -113,7 +112,7 @@ catkin_package(
 #  LIBRARIES mission_control
    CATKIN_DEPENDS dynamic_reconfigure roscpp roslib rospy std_msgs
 #  DEPENDS system_lib
-	CATKIN_DEPENDS actionlib_msgs
+	CATKIN_DEPENDS actionlib_msgs message_generation message_runtime
 )
 
 ###########

@@ -1,8 +1,7 @@
 #include "mission_control/pid/Pid.hpp"
 
-Pid::Pid(int axis, int input, std::string effortTopic, std::string plantTopic)
-         : isFirstCallBack_(false), enabled_(true), controlEffortTopic_(effortTopic),
-         plantStateTopic_(plantTopic){
+Pid::Pid(int axis, int input)
+         : isFirstCallBack_(false), enabled_(true){
 
   nhPriv_ = ros::NodeHandle("~");
 
@@ -29,14 +28,31 @@ Pid::Pid(int axis, int input, std::string effortTopic, std::string plantTopic)
   if(axisInt_ == -1) axis_ = "OTHER_AXIS";
   else axis_ = axes_.at(axisInt_);
 
+  std::string axisTopic = axis_;
+  std::transform(axisTopic.begin(), axisTopic.end(),axisTopic.begin(), ::tolower);
+
+  //Now we have enough to generate topic names
+  plantStateTopic_ = axisTopic + "PlantState";
+  setpointTopic_ = axisTopic + "Setpoint";
+  enabledTopic_ = axisTopic + "Enabled";
+  inputTopic_ = axisTopic + "InputType";
+  controlEffortTopic_ = axisTopic + "ControlEffort";
+
+
   //So the first time is registered as an input
   prevInputType_ = "OTHER_INPUT";
 
   //Register publisher for control effort
   controlEffortPub_ = nh_.advertise<std_msgs::Float64>(controlEffortTopic_, 1);
 
-  //and the subscriber for plant state
-  plantStateSub_ = nh_.subscribe(plantStateTopic_, 1, &Pid::plantStateCallback, this);
+  //and the subscribers
+  plantStateSub_ = nh_.subscribe(plantStateTopic_, 0, &Pid::plantStateCallback, this);
+  setpointSub_ = nh_.subscribe(setpointTopic_, 0, &Pid::setpointCallback, this);
+  setpointSub_ = nh_.subscribe(setpointTopic_, 0, &Pid::setpointCallback, this);
+  enabledSub_ = nh_.subscribe(enabledTopic_, 0, &Pid::enabledCallback, this);
+  inputSub_ = nh_.subscribe(inputTopic_, 0, &Pid::inputCallback, this);
+
+
 
   if(!plantStateSub_){
     ROS_ERROR_STREAM("Plant state subscriber initialization failed. Quitting");
@@ -56,10 +72,6 @@ Pid::Pid(int axis, int input, std::string effortTopic, std::string plantTopic)
 
   f = boost::bind(&Pid::reconfigureCallback, this, _1, _2);
   config_server.setCallback(f);
-
-
-  //service to update stuff
-  updateServiceServer_ = nh_.advertiseService("update_controller", &Pid::updateController, this);
 
 
 
@@ -82,14 +94,23 @@ Pid::Pid(int axis, int input, std::string effortTopic, std::string plantTopic)
 
     //ramp the setpoint, linearly
     if(setpointChanged_){
-      double t = ros::Time::now().toSec() - setpointChangeTime_;
-      setpoint_ = setpointStep_[0] + //starting val
-                //produces correct slope so step is achieved in desired time
-                ((setpointStep_[1] - setpointStep_[0])/setpointChangeTime_) * t;
-      shouldUpdate = true;
+      if(setpointRampDuration_ == 0){
+        setpoint_ = setpointStep_[1];
+        setpointChanged_ = false;
+      }
+      else{
+        double t = ros::Time::now().toSec() - setpointChangeTime_;
+        setpoint_ = setpointStep_[0] + //starting val
+                  //produces correct slope so step is achieved in desired time
+                  ((setpointStep_[1] - setpointStep_[0])/setpointRampDuration_) * t;
 
-      //if ramp is done
-      if(setpoint_ >= setpointStep_[1]) setpointChanged_ = false;
+        if(setpoint_ > setpointStep_[1]) setpoint_ = setpointStep_[1];
+
+        shouldUpdate = true;
+
+        //if ramp is done
+        if(setpoint_ == setpointStep_[1]) setpointChanged_ = false;
+      }
     }
     else if(plantStateChanged_){
       shouldUpdate = true;
@@ -187,12 +208,17 @@ void Pid::updatePlantState(const double& state){
 }
 
 void Pid::updateSetpoint(const double& setpoint){
+  ROS_INFO("Executing request to change setpoint for axis %s to %f",
+            axis_.c_str(), setpoint);
   setpointStep_[0] = setpointStep_[1];
   setpointStep_[1] = setpoint;
   setpointChanged_ = true;
+  setpointChangeTime_ = ros::Time::now().toSec();
 }
 
 void Pid::updateInputType(std::string input){
+  ROS_INFO("Executing request to change input type for axis %s to %s",
+            axis_.c_str(), input.c_str());
   prevInputType_ = inputType_;
   inputType_ = input;
   getParamsFromMap();
@@ -281,10 +307,6 @@ void Pid::reconfigureCallback(mission_control::PidConfig& config, uint32_t level
 
 }
 
-void Pid::plantStateCallback(const std_msgs::Float64& msg){
-  updatePlantState(msg.data);
-}
-
 
 std::string Pid::getConfigPath(){
 
@@ -338,47 +360,33 @@ void Pid::writeToFile(){
 
 }
 
-//service callback
-bool Pid::updateController(mission_control::UpdateService::Request &req,
-                      mission_control::UpdateService::Response &res){
 
+/* -------------  ROS CALLBACKS --------------------*/
 
-
-  int param = (int) req.param;
-
-  if(param == PidUtils::INPUT_TYPE){
-    int value = (int) req.value;
-    if(value < 0 || value > 5){
-      ROS_ERROR("Invalid input type (integer value %d). Aborting", value);
-      res.success = false;
-      return false;
-    }
-    else{
-      updateInputType(inputs_.at(value));
-    }
-  }
-  else if(param == PidUtils::SETPOINT){
-    ROS_INFO("Set setpoint to %f", (float)req.value);
-    updateSetpoint(req.value);
-  }
-  else if(param == PidUtils::ENABLED){
-    enabled_ = (bool)req.value;
-  }
-
-  else{
-    ROS_ERROR("Input parameter (integer value %d) not accepted. Update aborted",
-              param);
-    res.success = false;
-    return false;
-  }
-  ROS_INFO("Updated controller");
-  res.success = true;
-
-  return true;
-
-
+void Pid::plantStateCallback(const std_msgs::Float64& msg){
+  updatePlantState(msg.data);
 }
 
+void Pid::setpointCallback(const std_msgs::Float64& msg){
+  updateSetpoint(msg.data);
+}
+
+void Pid::enabledCallback(const std_msgs::Bool& msg){
+  enabled_ = msg.data;
+  ROS_INFO("%s %s PID loop", enabled_? "Enabled" : "Disabled", axis_.c_str());
+}
+
+void Pid::inputCallback(const std_msgs::Int32& msg){
+  if(msg.data < 0 || msg.data > 5){
+    ROS_ERROR("Attempted to set input type with invalid integer value %d. "
+              "Aborting", msg.data);
+  }
+  else
+    updateInputType(inputs_.at(msg.data));
+}
+
+
+//destructor just writes current vals to file. It's kinda nice
 Pid::~Pid(){
   writeToFile();
 }
@@ -386,7 +394,7 @@ Pid::~Pid(){
 int main(int argc, char** argv){
   ros::init(argc, argv, "PidNode");
 
-  Pid a(0, 0, "effort", "plant");
+  Pid a(0, 0);
   ros::spin();
   return 0;
 }

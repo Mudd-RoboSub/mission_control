@@ -5,10 +5,11 @@
 #include <string>
 #include <algorithm>
 #include <iostream>
-#include <mission_control/UpdateService.h>
 #include <ros/ros.h>
 #include "mission_control/pid/PidUtils.hpp"
 #include <std_msgs/Float64.h>
+#include <std_msgs/Int32.h>
+#include <std_msgs/Bool.h>
 
 class Axis{
 
@@ -38,15 +39,19 @@ public:
 
 private:
 
-
+  // short axisInt_;
+  std::string axisName_;
   //used to keep track of steps to track stability
   double setpointBuffer_[2] = {0,0};
 
-  //will sub to control effort, plant state
-  std::string controlEffortTopic_, plantStateTopic_;
+  //sub to control effort
+  std::string controlEffortTopic_;
 
-  //will publish percent thrust
-  std::string percentThrustTopic_;
+  //published topics
+  std::string setpointTopic_, enabledTopic_, inputTopic_, percentThrustTopic_,
+              plantStateTopic_;
+
+  //if we want to manually set percent thrust
   double percentThrust_;
 
 
@@ -60,14 +65,13 @@ private:
 
   PidUtils::Inputs inputType_;
 
-  mission_control::UpdateService updateSrv;
-  ros::ServiceClient client;
+
   ros::NodeHandle nh_;
-  ros::Publisher plantPub_;
+  ros::Publisher plantPub_, setpointPub_, enabledPub_, inputPub_, percentThrustPub_;
+  ros::Subscriber controlEffortSub_;
 
 
-
-
+  void controlEffortCallback(const std_msgs::Float64& msg);
 
 };
 

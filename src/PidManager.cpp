@@ -12,10 +12,10 @@ PidManager::PidManager(ros::NodeHandle nh)
   axisPitch_ = Axis("pitch", nh);
   axisYaw_ = Axis("yaw", nh);
 
+  //pause for a bit to let the messages catch up
+  ros::Duration(2).sleep();
 
   ROS_INFO("Initialized PID Manager");
-
-
 
 }
 
@@ -59,14 +59,14 @@ int main(int argc, char** argv){
   ros::NodeHandle nh_;
   PidManager a(nh_);
 
-  for(int i = 0; i < 1000; ++i){
-    a.setSetpoint(PidUtils::HEAVE, 10.2);
-    a.setPlantState(PidUtils::HEAVE, 11);
-    a.setInputType(PidUtils::HEAVE, PidUtils::IMU_POS);
-    a.setPidEnabled(PidUtils::HEAVE, false);
-  }
-  ros::Rate r(10);
-  while(true){//stop
+
+  ros::Rate r(100);
+
+
+  for(int i = 0; i < 100; ++i){
+    std::cout << i;
+    a.setSetpoint(PidUtils::SURGE, i);
     r.sleep();
   }
+
 }
