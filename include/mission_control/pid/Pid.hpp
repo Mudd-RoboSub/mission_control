@@ -20,8 +20,9 @@
 
 #include <ros/ros.h>
 #include <std_msgs/Float64.h>
+#include <std_msgs/Bool.h>
+#include <std_msgs/Int32.h>
 #include <mission_control/PidConfig.h>
-#include <mission_control/UpdateService.h>
 #include <dynamic_reconfigure/server.h>
 #include <unordered_map>
 #include <fstream>
@@ -38,8 +39,7 @@ private:
 
 public:
 
-  Pid(int axis = -1, int input = -1, std::string effortTopic = "effort",
-      std::string plantTopic = "plant");
+  Pid(int axis = -1, int input = -1);
   //no copy constructor, shouldn't be used
   Pid(const Pid&) = delete;
   //no assignment operator either
@@ -84,8 +84,7 @@ private:
 
   double setpointChangeTime_ = 0;
   double setpointStep_[2]; //[oldVal, newVal]
-  double setpointRampDuration_ = 0;
-
+  double setpointRampDuration_ = 1.;
   ros::Time prevTime_;
 
   //max value for integral term to reach
@@ -103,13 +102,12 @@ private:
   // 1/4 of the sample rate.
   double c_ = 1.;
 
-  //control effort/plant state publishing
-  std::string controlEffortTopic_, plantStateTopic_;
+  //pub/sub topics
+  std::string controlEffortTopic_, plantStateTopic_, setpointTopic_, enabledTopic_,
+              inputTopic_;
   std_msgs::Float64 controlEffortMsg_;
   ros::Publisher controlEffortPub_;
-  ros::Subscriber plantStateSub_;
-
-  ros::ServiceServer updateServiceServer_;
+  ros::Subscriber plantStateSub_, setpointSub_, enabledSub_, inputSub_;
 
 
   ///Get new kP, kI, kD values from config.
@@ -139,14 +137,17 @@ private:
   void writeToFile();
 
 
-  bool updateController(mission_control::UpdateService::Request &req,
-                        mission_control::UpdateService::Response &res);
   //pack these all into a service.
   void updateInputType(std::string input);
   void updatePlantState(const double&);
   void updateSetpoint(const double&);
 
+
+  //callbacks
   void plantStateCallback(const std_msgs::Float64& msg);
+  void setpointCallback(const std_msgs::Float64& msg);
+  void enabledCallback(const std_msgs::Bool& msg);
+  void inputCallback(const std_msgs::Int32& msg);
 
 
 };
