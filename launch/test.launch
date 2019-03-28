@@ -8,6 +8,8 @@
     <param name="inputType" value="0"/>
   </node>
 
+  <node name="pid_manager" pkg="mission_control" type="pid_manager" />
+
 <!--  <node name="smach" pkg="mission_control" type="StateMachine.py" output="screen"/> -->
 
   <node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure" />

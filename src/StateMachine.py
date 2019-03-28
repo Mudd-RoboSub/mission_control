@@ -5,8 +5,11 @@ import smach
 import smach_ros
 import rospkg
 import imp
+import sys
 
-from mission_control.msg import FibonacciAction, FibonacciGoal
+#services
+from mission_control.srv import *
+
 from actionlib import *
 from actionlib_msgs.msg import *
 
@@ -25,6 +28,15 @@ class Bar(smach.State):
 
 
 
+def setEnabledClient(axis, setpoint):
+    rospy.wait_for_service('EnabledService')
+    try:
+        enabledServiceProxy = rospy.ServiceProxy('EnabledService', EnabledService)
+        res = enabledServiceProxy(axis, setpoint)
+        return res.success
+    except rospy.ServiceException, e:
+        print "Service call failed: %s" %e
+
 
 # main
 def main():
@@ -33,6 +45,11 @@ def main():
     pidPath = rospack.get_path('mission_control') + '/src/Tasks/Foo.py'
     rospy.loginfo("Path %s", pidPath)
 
+    axis = "surge"
+    value = False
+    print "Requesting %s+%s"%(axis, value)
+    print "%s + %s = %s"%(axis, value, setEnabledClient(axis, value))
+
     foo = imp.load_source('Foo', pidPath)
 
     # Create a SMACH state machine
@@ -40,14 +57,6 @@ def main():
 
     # Open the container
     with sm:
-        fibonacci_goal = FibonacciGoal()
-        fibonacci_goal.order = 20
-        smach.StateMachine.add('Fbonacci',
-                                   smach_ros.SimpleActionState('fibonacci', FibonacciAction,
-                                                                goal=fibonacci_goal),
-                                   {'succeeded':'FOO',
-                                    'preempted':'BAR',
-                                    'aborted':'BAR'})
 
         # Add states to the container
         smach.StateMachine.add('FOO', foo.Foo(),
@@ -58,8 +67,14 @@ def main():
 
 
 
+    sis = smach_ros.IntrospectionServer('server_name', sm, '/SM_ROOT')
+    sis.start()
+
+
     # Execute SMACH plan
     outcome = sm.execute()
+    rospy.spin()
+    sis.stop()
 
 
 if __name__ == '__main__':

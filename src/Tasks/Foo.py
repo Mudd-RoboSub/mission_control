@@ -9,7 +9,7 @@ class Foo(smach.State):
         self.counter = 0
 
     def execute(self, userdata):
-        for x in range(1000):
+        for x in range(10):
             rospy.loginfo("yeet")
             rospy.sleep(.2)
         rospy.loginfo('Executing state FOO')

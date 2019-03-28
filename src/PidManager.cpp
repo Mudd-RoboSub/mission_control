@@ -12,6 +12,11 @@ PidManager::PidManager(ros::NodeHandle nh)
   axisPitch_ = Axis("pitch", nh);
   axisYaw_ = Axis("yaw", nh);
 
+  enabledService_ = nh_.advertiseService("EnabledService", &PidManager::enabledServiceCB, this);
+  inputService_ = nh_.advertiseService("InputTypeService", &PidManager::inputServiceCB, this);
+  setpointService_ = nh_.advertiseService("SetpointService", &PidManager::setpointServiceCB, this);
+
+
   //pause for a bit to let the messages catch up
   ros::Duration(2).sleep();
 
@@ -36,6 +41,10 @@ void PidManager::setInputType(const PidUtils::Axes& axis, const PidUtils::Inputs
   selectAxis(axis).setInputType(input);
 }
 
+void PidManager::setPercentThrust(const PidUtils::Axes& axis, const double& val){
+  selectAxis(axis).setPercentThrust(val);
+}
+
 Axis& PidManager::selectAxis(const PidUtils::Axes& axis){
   switch(axis){
     case(PidUtils::SURGE):
@@ -50,22 +59,129 @@ Axis& PidManager::selectAxis(const PidUtils::Axes& axis){
       return axisPitch_;
     case(PidUtils::YAW):
       return axisYaw_;
+    default:
+      ROS_FATAL("Invalid axis enum provided with integer value %d", (int)axis);
   }
 }
 
+Axis& PidManager::selectAxis(const std::string& axis){
+    if(axis == "surge")
+      return axisSurge_;
+    else if(axis == "sway")
+      return axisSway_;
+    else if(axis == "heave")
+      return axisHeave_;
+    else if(axis == "roll")
+      return axisRoll_;
+    else if(axis == "pitch")
+      return axisPitch_;
+    else if(axis == "yaw")
+      return axisYaw_;
+
+    else{
+      ROS_FATAL("Axis string provided (%s) is invalid.", axis.c_str());
+      return axisSurge_;
+    }
+}
+
+
+//Service callbacks
+bool PidManager::enabledServiceCB(mission_control::EnabledService::Request &req,
+                      mission_control::EnabledService::Response &res){
+
+  res.success = true;
+  std::string axis = req.axis;
+  std::transform(axis.begin(), axis.end(),axis.begin(), ::tolower);
+
+  if(std::find(PidUtils::AxisStrings.begin(), PidUtils::AxisStrings.end(), axis) != PidUtils::AxisStrings.end()) {
+    selectAxis(axis).setPidEnabled(req.en);
+  }
+  else {
+      ROS_FATAL("Axis string provided (%s) is invalid.", axis.c_str());
+      res.success = false;
+  }
+  return res.success;
+}
+
+
+bool PidManager::inputServiceCB(mission_control::InputService::Request &req,
+                    mission_control::InputService::Response &res){
+
+  res.success = true;
+  std::string axis = req.axis;
+  PidUtils::Inputs inputType = (PidUtils::Inputs)req.input;
+  std::transform(axis.begin(), axis.end(),axis.begin(), ::tolower);
+
+  if(std::find(PidUtils::AxisStrings.begin(), PidUtils::AxisStrings.end(), axis) != PidUtils::AxisStrings.end()) {
+    selectAxis(axis).setInputType(inputType);
+  }
+  else {
+      ROS_FATAL("Axis string provided (%s) is invalid.", axis.c_str());
+      res.success = false;
+  }
+  return res.success;
+}
+
+bool PidManager::setpointServiceCB(mission_control::SetpointService::Request &req,
+                       mission_control::SetpointService::Response &res){
+
+
+  res.success = true;
+  std::string axis = req.axis;
+  double setpoint = req.value;
+  std::transform(axis.begin(), axis.end(),axis.begin(), ::tolower);
+
+  if(std::find(PidUtils::AxisStrings.begin(), PidUtils::AxisStrings.end(), axis) != PidUtils::AxisStrings.end()) {
+    Axis& currentAxis = selectAxis(axis);
+    if(!currentAxis.isEnabled()){
+      ROS_INFO("Implicitly enabling %s pid loop in order to set the setpoint.", axis.c_str());
+      currentAxis.setPidEnabled(true);
+    }
+
+    selectAxis(axis).setSetpoint(setpoint);
+  }
+  else {
+      ROS_FATAL("Axis string provided (%s) is invalid.", axis.c_str());
+      res.success = false;
+  }
+  return res.success;
+}
+
+bool PidManager::thrustOverrideCB(mission_control::ThrustOverrideService::Request &req,
+                      mission_control::ThrustOverrideService::Response &res){
+
+  res.success = true;
+  std::string axis = req.axis;
+  double percentThrust = req.value;
+  std::transform(axis.begin(), axis.end(),axis.begin(), ::tolower);
+
+  if(std::find(PidUtils::AxisStrings.begin(), PidUtils::AxisStrings.end(), axis) != PidUtils::AxisStrings.end()) {
+    Axis& currentAxis = selectAxis(axis);
+    if(currentAxis.isEnabled()){
+      ROS_INFO("Implicitly disabling %s pid loop in order to set the thrust.", axis.c_str());
+      currentAxis.setPidEnabled(false);
+    }
+
+    selectAxis(axis).setPercentThrust(percentThrust);
+  }
+  else {
+      ROS_FATAL("Axis string provided (%s) is invalid.", axis.c_str());
+      res.success = false;
+  }
+  return res.success;
+
+}
 
 int main(int argc, char** argv){
   ros::init(argc, argv, "PidManager");
   ros::NodeHandle nh_;
-  PidManager a(nh_);
+  // PidManager a(nh_);
 
-
+  PidManager b(nh_);
+  b.setPidEnabled(PidUtils::SURGE);
   ros::Rate r(100);
-
-
-  for(int i = 0; i < 100; ++i){
-    std::cout << i;
-    a.setSetpoint(PidUtils::SURGE, i);
+  while(ros::ok){
+    ros::spinOnce();
     r.sleep();
   }
 

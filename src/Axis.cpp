@@ -1,9 +1,4 @@
-#include "../include/mission_control/Axis.hpp"
-//
-// Axis::Axis(){
-//   std::cerr << "boo" << std::endl;
-// }
-
+#include <mission_control/Axis.hpp>
 
 Axis::Axis(std::string axisName, const ros::NodeHandle& nh)
     : axisName_(axisName), plantState_(0), setpoint_(0), controlEffort_(0), nh_(nh)
@@ -80,15 +75,8 @@ void Axis::controlEffortCallback(const std_msgs::Float64& msg){
   controlEffort_ = msg.data;
 }
 
-// int main(int argc, char** argv){
-//   ros::init(argc, argv, "Axis");
-//   ros::NodeHandle nh_;
-//   Axis a("hHaAFDi", nh_);
-//   ROS_INFO("YEEET");
-//   double b = 11;
-//   a.updateController(PidUtils::SETPOINT, b);
-//   for(int i = 0; i < 100000; ++i){
-//     ROS_INFO("Hmm");
-//     a.setPlantState(i);
-//   }
-// }
+void Axis::setPercentThrust(const double& val){
+    std_msgs::Float64 msg;
+    msg.data = val;
+    percentThrustPub_.publish(msg);
+}

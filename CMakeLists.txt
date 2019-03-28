@@ -63,6 +63,10 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
 	DIRECTORY srv
   FILES
+	EnabledService.srv
+	InputService.srv
+	ThrustOverrideService.srv
+	SetpointService.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -205,11 +209,11 @@ include_directories(
 # catkin_add_nosetests(test)
 
 
-
+#
 add_executable(pid_axis src/Pid.cpp)
 target_link_libraries(pid_axis ${catkin_LIBRARIES})
 add_dependencies(pid_axis
-	${PROJECT_NAME}_EXPORTED_TARGETS
+	${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   ${PROJECT_NAME}_gencfg
 )
@@ -226,10 +230,11 @@ add_executable(pid_manager
 	src/PidManager.cpp
 	src/Axis.cpp
 )
+
+
 target_link_libraries(pid_manager ${catkin_LIBRARIES})
 add_dependencies(pid_manager
-	axis
-  ${PROJECT_NAME}_EXPORTED_TARGETS
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   ${PROJECT_NAME}_gencfg
 )

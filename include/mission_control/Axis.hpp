@@ -27,6 +27,7 @@ public:
   void setPlantState(const double& val);
   void setSetpoint(const double& val, const size_t& stabilityBand = 100);
   void setInputType(const PidUtils::Inputs&);
+  inline bool isEnabled(){return enabled_;}
 
 
   //for manually setting thrust
@@ -40,6 +41,7 @@ public:
 private:
 
   // short axisInt_;
+
   std::string axisName_;
   //used to keep track of steps to track stability
   double setpointBuffer_[2] = {0,0};
