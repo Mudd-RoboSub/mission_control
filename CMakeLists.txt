@@ -53,11 +53,11 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+ add_message_files(
+ 	 DIRECTORY msg
+   FILES
+   Thrust.msg
+ )
 
 ## Generate services in the 'srv' folder
 add_service_files(
@@ -114,9 +114,8 @@ generate_dynamic_reconfigure_options(
 catkin_package(
    INCLUDE_DIRS include
 #  LIBRARIES mission_control
-   CATKIN_DEPENDS dynamic_reconfigure roscpp roslib rospy std_msgs
-#  DEPENDS system_lib
-	CATKIN_DEPENDS actionlib_msgs message_generation message_runtime
+   CATKIN_DEPENDS dynamic_reconfigure roscpp roslib rospy std_msgs actionlib_msgs message_generation message_runtime
+
 )
 
 ###########
@@ -237,4 +236,12 @@ add_dependencies(pid_manager
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   ${PROJECT_NAME}_gencfg
+)
+
+add_executable(thrust_master src/ThrustMaster.cpp)
+target_link_libraries(thrust_master ${catkin_LIBRARIES})
+add_dependencies(thrust_master
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  ${PROJECT_NAME}_generate_messages_cpp
 )

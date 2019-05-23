@@ -178,9 +178,12 @@ void Pid::updateErrors(double timePassed){
 
   filteredError_.at(2) = filteredError_.at(1);
   filteredError_.at(1) = filteredError_.at(0);
-  filteredError_.at(0) = (1 / (1 + c_ * c_ + 1.414 * c_)) * (error_.at(2) + 2 * error_.at(1) + error_.at(0) -
+  filteredError_.at(0) = error_.at(0);
+  //filters seem to be causing troubles. Workaround fix.
+  //Shouldn't affect performance noticably since we filter data elsewhere
+  /*(1 / (1 + c_ * c_ + 1.414 * c_)) * (error_.at(2) + 2 * error_.at(1) + error_.at(0) -
                                                               (c_ * c_ - 1.414 * c_ + 1) * filteredError_.at(2) -
-                                                              (-2 * c_ * c_ + 2) * filteredError_.at(1));
+                                                              (-2 * c_ * c_ + 2) * filteredError_.at(1));*/
 
   // Take derivative of error
   // First the raw, unfiltered data:
@@ -192,9 +195,10 @@ void Pid::updateErrors(double timePassed){
   filteredErrorDeriv_.at(1) = filteredErrorDeriv_.at(0);
 
   filteredErrorDeriv_.at(0) =
-      (1 / (1 + c_ * c_ + 1.414 * c_)) *
+  //hey bud your filters suck
+      /*(1 / (1 + c_ * c_ + 1.414 * c_)) *
       (errorDeriv_.at(2) + 2 * errorDeriv_.at(1) + errorDeriv_.at(0) -
-       (c_ * c_ - 1.414 * c_ + 1) * filteredErrorDeriv_.at(2) - (-2 * c_ * c_ + 2) * filteredErrorDeriv_.at(1));
+       (c_ * c_ - 1.414 * c_ + 1) * filteredErrorDeriv_.at(2) - (-2 * c_ * c_ + 2) * filteredErrorDeriv_.at(1));*/
 
 
    //riemann that boi
@@ -390,6 +394,7 @@ void Pid::inputCallback(const std_msgs::Int32& msg){
 Pid::~Pid(){
   writeToFile();
 }
+
 
 int main(int argc, char** argv){
   ros::init(argc, argv, "PidNode");
