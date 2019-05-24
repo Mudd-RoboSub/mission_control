@@ -194,7 +194,7 @@ void Pid::updateErrors(double timePassed){
   filteredErrorDeriv_.at(2) = filteredErrorDeriv_.at(1);
   filteredErrorDeriv_.at(1) = filteredErrorDeriv_.at(0);
 
-  filteredErrorDeriv_.at(0) =
+  filteredErrorDeriv_.at(0) = errorDeriv_.at(0);
   //hey bud your filters suck
       /*(1 / (1 + c_ * c_ + 1.414 * c_)) *
       (errorDeriv_.at(2) + 2 * errorDeriv_.at(1) + errorDeriv_.at(0) -

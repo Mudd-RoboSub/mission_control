@@ -6,6 +6,7 @@ import smach_ros
 import rospkg
 import imp
 import sys
+from Axis import Axis
 
 #services
 from mission_control.srv import *
@@ -42,13 +43,27 @@ def setEnabledClient(axis, setpoint):
 def main():
     rospy.init_node('smach_example_state_machine')
     rospack = rospkg.RosPack()
-    pidPath = rospack.get_path('mission_control') + '/src/Tasks/Foo.py'
+    pidPath = rospack.get_path('mission_control') + '/src/Mission/Tasks/Foo.py'
     rospy.loginfo("Path %s", pidPath)
 
+    '''
     axis = "surge"
     value = False
     print "Requesting %s+%s"%(axis, value)
     print "%s + %s = %s"%(axis, value, setEnabledClient(axis, value))
+    '''
+
+    surge = Axis("surge")
+    sway = Axis("sway")
+    heave = Axis("heave")
+    roll = Axis("roll")
+    pitch = Axis("pitch")
+    yaw = Axis ("yaw")
+
+    # surge.setEnabled(True)
+    # surge.setSetpoint(10)
+    # surge.setControlEffort(10)
+    surge.setInput("CAM_FRONT")
 
     foo = imp.load_source('Foo', pidPath)
 
