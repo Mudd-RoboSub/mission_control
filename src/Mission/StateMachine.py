@@ -60,10 +60,9 @@ def main():
     pitch = Axis("pitch")
     yaw = Axis ("yaw")
 
-    # surge.setEnabled(True)
-    # surge.setSetpoint(10)
-    # surge.setControlEffort(10)
+    surge.setEnabled(True)
     surge.setInput("CAM_FRONT")
+    surge.setSetpoint(10)
 
     foo = imp.load_source('Foo', pidPath)
 

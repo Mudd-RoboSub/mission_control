@@ -104,7 +104,10 @@ Pid::Pid(int axis, int input)
                   //produces correct slope so step is achieved in desired time
                   ((setpointStep_[1] - setpointStep_[0])/setpointRampDuration_) * t;
 
-        if(setpoint_ > setpointStep_[1]) setpoint_ = setpointStep_[1];
+        //if ramp complete
+        if(setpointStep_[0] > setpointStep_[1] && setpoint_ > setpointStep_[1] ||
+           setpointStep_[0] < setpointStep_[1] && setpoint_ < setpointStep_[1])
+            setpoint_ = setpointStep_[1];
 
         shouldUpdate = true;
 
@@ -119,8 +122,8 @@ Pid::Pid(int axis, int input)
 
     if(shouldUpdate){
       prevControlEffort_ = controlEffort_;
-      executeController(timePassed);
     }
+    executeController(timePassed);
 
     //publish the congtrol effort
     if(enabled_ && prevControlEffort_ != controlEffort_){
@@ -134,7 +137,7 @@ Pid::Pid(int axis, int input)
     ros::spinOnce();
 
     //cpu protecc
-    ros::Duration(0.001).sleep();
+    ros::Duration(0.01).sleep();
 
   }
 }
@@ -152,9 +155,9 @@ void Pid::executeController(double timePassed){
 
   updateErrors(timePassed);
 
-  controlEffort_ = kP_ * filteredError_.at(0) +
+  controlEffort_ = kP_ * error_.at(0) +
                    kI_ * errorIntegral_ +
-                   kD_ * filteredErrorDeriv_.at(0);
+                   kD_ * errorDeriv_.at(0);
 
 }
 
@@ -203,10 +206,13 @@ void Pid::updateErrors(double timePassed){
 
    //riemann that boi
    errorIntegral_ += timePassed * error_.at(0);
+
+   ROS_INFO("Error %f, Integral %f, Deriv %f", error_.at(0), errorIntegral_, errorDeriv_.at(0));
 }
 
 
 void Pid::updatePlantState(const double& state){
+  ROS_INFO("Plant state changing to %f", state);
   plantState_ = state;
   plantStateChanged_ = true;
 }
@@ -363,7 +369,6 @@ void Pid::writeToFile(){
   tuneFile.close();
 
 }
-
 
 /* -------------  ROS CALLBACKS --------------------*/
 
