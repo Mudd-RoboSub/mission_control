@@ -10,7 +10,7 @@ class Axis:
 
     _enabled = False
 
-    _inputs = {"IMU_POS" : 0, "IMU_ACCEL" : 1, "DEPTH" : 2, "CAM_FRONT": 3, "CAM_BOTTOM" : 4}
+    _inputs = {"IMU_POS" : 0, "IMU_ACCEL" : 1, "DEPTH" : 2, "CAM_FRONT": 3, "CAM_BOTTOM" : 4, "LOCALIZE": 5}
 
     def __init__(self, name):
         self._axis = name

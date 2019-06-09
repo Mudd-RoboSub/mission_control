@@ -6,16 +6,6 @@ Axis::Axis(std::string axisName, const ros::NodeHandle& nh)
 
   std::transform(axisName.begin(), axisName.end(),axisName.begin(), ::tolower);
 
-  // switch(axisName){
-  //   case("surge"): axisInt_ = (int)PidUtils::SURGE;
-  //   case("sway"): axisInt_ = (int)PidUtils::SWAY;
-  //   case("heave"): axisInt_ = (int)PidUtils::HEAVE;
-  //   case("roll"): axisInt_ = (int)PidUtils::HEAVE;
-  //   case("pitch"): axisInt_ = (int)PidUtils::PITCH;
-  //   case("yaw"): axisInt_ = (int)PidUtils::YAW;
-  //   default: axisInt_ = -1;
-  // }
-
 
   //For bypassing PID Control
   percentThrustTopic_ = axisName + "PercentThrust";

@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 	message_generation
 	genmsg
 	actionlib
+	message_runtime
 )
 
 ## System dependencies are found with CMake's conventions
@@ -54,10 +55,9 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Generate messages in the 'msg' folder
  add_message_files(
- 	 DIRECTORY msg
+   DIRECTORY msg
    FILES
-   Thrust.msg
- )
+  )
 
 ## Generate services in the 'srv' folder
 add_service_files(
@@ -238,10 +238,4 @@ add_dependencies(pid_manager
   ${PROJECT_NAME}_gencfg
 )
 
-add_executable(thrust_master src/ThrustMaster.cpp)
-target_link_libraries(thrust_master ${catkin_LIBRARIES})
-add_dependencies(thrust_master
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  ${PROJECT_NAME}_generate_messages_cpp
-)
+

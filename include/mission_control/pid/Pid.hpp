@@ -34,7 +34,7 @@ class Pid{
 
 private:
   std::vector<std::string> axes_ = {"SURGE", "SWAY", "HEAVE", "ROLL", "PITCH", "YAW"};
-  std::vector<std::string> inputs_ = {"IMU_POS", "IMU_ACCEL", "DEPTH", "CAM_FRONT", "CAM_BOTTOM"};
+  std::vector<std::string> inputs_ = {"IMU_POS", "IMU_ACCEL", "DEPTH", "CAM_FRONT", "CAM_BOTTOM", "LOCALIZE"};
 
 
 public:
@@ -148,6 +148,7 @@ private:
   void setpointCallback(const std_msgs::Float64& msg);
   void enabledCallback(const std_msgs::Bool& msg);
   void inputCallback(const std_msgs::Int32& msg);
+  
 
 
 

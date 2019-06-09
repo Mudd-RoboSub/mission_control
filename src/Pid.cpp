@@ -207,7 +207,7 @@ void Pid::updateErrors(double timePassed){
    //riemann that boi
    errorIntegral_ += timePassed * error_.at(0);
 
-   ROS_INFO("Error %f, Integral %f, Deriv %f", error_.at(0), errorIntegral_, errorDeriv_.at(0));
+   //ROS_INFO("Error %f, Integral %f, Deriv %f", error_.at(0), errorIntegral_, errorDeriv_.at(0));
 }
 
 
@@ -245,7 +245,6 @@ void Pid::loadParamsFromFile(){
 
   std::vector<double> values;
   std::string path;
-  ROS_INFO("3");
 
   for(auto axis : axes_){
     for(auto input : inputs_){

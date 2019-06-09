@@ -71,7 +71,7 @@
 
   
   <depend> message_generation </depend>
-
+  <build_depend>message_runtime</build_depend>
   <build_export_depend>message_runtime</build_export_depend>
   <exec_depend> message_runtime </exec_depend>
 
