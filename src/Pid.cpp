@@ -46,12 +46,18 @@ Pid::Pid(int axis, int input)
   controlEffortPub_ = nh_.advertise<std_msgs::Float64>(controlEffortTopic_, 1);
 
   //and the subscribers
-  plantStateSub_ = nh_.subscribe(plantStateTopic_, 0, &Pid::plantStateCallback, this);
   setpointSub_ = nh_.subscribe(setpointTopic_, 0, &Pid::setpointCallback, this);
   setpointSub_ = nh_.subscribe(setpointTopic_, 0, &Pid::setpointCallback, this);
   enabledSub_ = nh_.subscribe(enabledTopic_, 0, &Pid::enabledCallback, this);
   inputSub_ = nh_.subscribe(inputTopic_, 0, &Pid::inputCallback, this);
 
+  //load in relevant parameters from yaml file, select appropriate set based on
+  //config
+  loadParamsFromFile();
+  getParamsFromMap();  
+  
+  //subscribe appropriately
+  updatePlantSub();
 
 
   if(!plantStateSub_){
@@ -59,11 +65,8 @@ Pid::Pid(int axis, int input)
     ros::shutdown();
     exit(EXIT_FAILURE);
   }
-
-  //load in relevant parameters from yaml file, select appropriate set based on
-  //config
-  loadParamsFromFile();
-  getParamsFromMap();
+  else
+	ROS_INFO("Plant state subscriber initialized");
 
   //service registration
   dynamic_reconfigure::Server<mission_control::PidConfig> config_server;
@@ -140,6 +143,26 @@ Pid::Pid(int axis, int input)
     ros::Duration(0.01).sleep();
 
   }
+}
+
+void Pid::updatePlantSub(){
+
+  
+  std::string newTopic = topicMap_[axis_ + "/" + inputType_ + "_TOPIC"];
+    
+  if(newTopic == "none"){
+	  ROS_WARN("Invalid combination of axis and input type. "
+	           "PID won't work. "
+	           "Plz send help.");
+	  
+	  //dummy subscriber so it doesn't kill itself
+	  newTopic = "/none";
+  }
+  
+  plantStateSub_ = nh_.subscribe(newTopic, 0, &Pid::plantStateCallback, this);
+  ROS_INFO("Remapped %s plant state to %s", axis_, newTopic);
+
+	
 }
 
 //calculates control effort
@@ -232,6 +255,8 @@ void Pid::updateInputType(std::string input){
   prevInputType_ = inputType_;
   inputType_ = input;
   getParamsFromMap();
+  
+  updatePlantSub();
 }
 
 void Pid::loadParamsFromFile(){
@@ -244,6 +269,7 @@ void Pid::loadParamsFromFile(){
   }
 
   std::vector<double> values;
+  values.reserve(3);
   std::string path;
 
   for(auto axis : axes_){
@@ -253,6 +279,16 @@ void Pid::loadParamsFromFile(){
       std::pair<std::string, std::vector<double>> mapPair(path, values);
 
       paramMap_.insert(mapPair);
+      
+      std::string topic;
+      path += "_TOPIC";
+      nh_.getParam(path, topic);
+      std::pair<std::string, std::string> topicPair(path, topic);
+      
+      topicMap_.insert(topicPair);
+      
+      ROS_WARN("Output: %s", (topicMap_[path]).c_str());
+    
     }
   }
 
@@ -274,7 +310,7 @@ void Pid::getParamsFromMap(){
   kP_ = values.at(0);
   kI_ = values.at(1);
   kD_ = values.at(2);
-
+  
   ROS_INFO("Loaded default parameters for %s configuration:"
            "Kp=%f, Ki=%f, Kd=%f", path.c_str(), kP_, kI_, kD_);
 

@@ -110,10 +110,15 @@ private:
   ros::Subscriber plantStateSub_, setpointSub_, enabledSub_, inputSub_;
 
 
-  ///Get new kP, kI, kD values from config.
+  ///Get new kP, kI, kD values and topic names from config.
   void loadParamsFromFile();
   std::unordered_map<std::string, std::vector<double>> paramMap_;
+  std::unordered_map<std::string, std::string> topicMap_;
+  
+  
   void getParamsFromMap();
+  void updatePlantSub();
+
 
   bool isFirstCallBack_;
 
