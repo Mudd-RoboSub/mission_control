@@ -54,8 +54,8 @@ Pid::Pid(int axis, int input)
   //load in relevant parameters from yaml file, select appropriate set based on
   //config
   loadParamsFromFile();
-  getParamsFromMap();  
-  
+  getParamsFromMap();
+
   //subscribe appropriately
   updatePlantSub();
 
@@ -76,7 +76,7 @@ Pid::Pid(int axis, int input)
   f = boost::bind(&Pid::reconfigureCallback, this, _1, _2);
   config_server.setCallback(f);
 
-
+  int hi = 0;
 
   while(ros::ok()){
 
@@ -128,8 +128,11 @@ Pid::Pid(int axis, int input)
     }
     executeController(timePassed);
 
+    if(hi % 200 == 0)
+      ROS_INFO("Setpoint: %f, Plant State: %f, cE: %f", (float)setpoint_, (float)plantState_, (float)controlEffort_);
+    ++hi;
     //publish the congtrol effort
-    if(enabled_ && prevControlEffort_ != controlEffort_){
+    if(enabled_){
       controlEffortMsg_.data = controlEffort_;
       controlEffortPub_.publish(controlEffortMsg_);
     }
@@ -147,22 +150,22 @@ Pid::Pid(int axis, int input)
 
 void Pid::updatePlantSub(){
 
-  
-  std::string newTopic = topicMap_[axis_ + "/" + inputType_ + "_TOPIC"];
-    
+  std::string path = axis_ + "/" + inputType_ + "_TOPIC";
+  std::string newTopic = topicMap_[path];
+
   if(newTopic == "none"){
 	  ROS_WARN("Invalid combination of axis and input type. "
 	           "PID won't work. "
 	           "Plz send help.");
-	  
+
 	  //dummy subscriber so it doesn't kill itself
 	  newTopic = "/none";
   }
-  
-  plantStateSub_ = nh_.subscribe(newTopic, 0, &Pid::plantStateCallback, this);
-  ROS_INFO("Remapped %s plant state to %s", axis_, newTopic);
 
-	
+  plantStateSub_ = nh_.subscribe(newTopic, 0, &Pid::plantStateCallback, this);
+  ROS_INFO("Remapped %s plant state to %s", axis_.c_str(), newTopic.c_str()	);
+
+
 }
 
 //calculates control effort
@@ -235,7 +238,7 @@ void Pid::updateErrors(double timePassed){
 
 
 void Pid::updatePlantState(const double& state){
-  ROS_INFO("Plant state changing to %f", state);
+  //ROS_INFO("Plant state changing to %f", state);
   plantState_ = state;
   plantStateChanged_ = true;
 }
@@ -255,7 +258,7 @@ void Pid::updateInputType(std::string input){
   prevInputType_ = inputType_;
   inputType_ = input;
   getParamsFromMap();
-  
+
   updatePlantSub();
 }
 
@@ -279,16 +282,15 @@ void Pid::loadParamsFromFile(){
       std::pair<std::string, std::vector<double>> mapPair(path, values);
 
       paramMap_.insert(mapPair);
-      
+
       std::string topic;
       path += "_TOPIC";
       nh_.getParam(path, topic);
       std::pair<std::string, std::string> topicPair(path, topic);
-      
+
       topicMap_.insert(topicPair);
-      
-      ROS_WARN("Output: %s", (topicMap_[path]).c_str());
-    
+      ROS_WARN("Path: %s, Output: %s", path.c_str(), (topicMap_[path]).c_str());
+
     }
   }
 
@@ -310,7 +312,7 @@ void Pid::getParamsFromMap(){
   kP_ = values.at(0);
   kI_ = values.at(1);
   kD_ = values.at(2);
-  
+
   ROS_INFO("Loaded default parameters for %s configuration:"
            "Kp=%f, Ki=%f, Kd=%f", path.c_str(), kP_, kI_, kD_);
 
@@ -382,24 +384,27 @@ void Pid::saveParams(){
 
 void Pid::writeToFile(){
   std::ofstream tuneFile;
-  std::string filePath = ros::package::getPath("mission_control") + "/include/mission_control/pid/tune.yaml";
+  std::string filePath = ros::package::getPath("mission_control");
+  filePath += "/include/mission_control/pid/tune/";
+  filePath += axis_ + ".yaml";
   tuneFile.open(filePath);
 
   tuneFile << "#Don't edit this file unless you're sure!" << std::endl;
 
-  for(auto i : axes_){
-    tuneFile << i << ":" << std::endl;
-    for(auto j : inputs_){
-      std::string paramPath = i + "/" + j;
-      ROS_INFO("Path to file: %s", paramPath.c_str());
-      std::vector<double> newParams = paramMap_.at(paramPath);
-      double kP, kI, kD;
-      kP = newParams.at(0);
-      kI = newParams.at(1);
-      kD = newParams.at(2);
-      tuneFile << "  " << j << ": [" << kP << "," << kI << "," << kD << "]" << std::endl;
-    }
+  tuneFile << axis_ << ":" << std::endl;
+  for(auto i : inputs_){
+    std::string paramPath = axis_ + "/" + i;
+    std::vector<double> newParams = paramMap_.at(paramPath);
+    double kP, kI, kD;
+    kP = newParams.at(0);
+    kI = newParams.at(1);
+    kD = newParams.at(2);
+    tuneFile << "  " << i << ": [" << kP << "," << kI << "," << kD << "]" << std::endl;
+
+    std::string topicName = paramPath + "_TOPIC";
+    tuneFile << "  " << i + "_TOPIC" << ": \'" << topicMap_[topicName] << "\'" << std::endl;
   }
+
 
   tuneFile.close();
 
