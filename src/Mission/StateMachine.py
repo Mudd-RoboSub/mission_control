@@ -52,17 +52,23 @@ def main():
     print "Requesting %s+%s"%(axis, value)
     print "%s + %s = %s"%(axis, value, setEnabledClient(axis, value))
     '''
-
-    surge = Axis("surge")
-    sway = Axis("sway")
+    rospy.logwarn(0)
+#    surge = Axis("surge")
+#    sway = Axis("sway")
     heave = Axis("heave")
-    roll = Axis("roll")
-    pitch = Axis("pitch")
-    yaw = Axis ("yaw")
+#    roll = Axis("roll")
+#    pitch = Axis("pitch")
+#    yaw = Axis ("yaw")
 
-    surge.setEnabled(True)
-    surge.setInput("CAM_FRONT")
-    surge.setSetpoint(10)
+    rospy.logwarn(1)
+    heave.setEnabled(True)
+    heave.setInput("DEPTH")
+    heave.setSetpoint(10)
+    rospy.logwarn(2)
+    heave.setZero()
+    rospy.logwarn(3)
+
+
 
     foo = imp.load_source('Foo', pidPath)
 
@@ -73,7 +79,7 @@ def main():
     with sm:
 
         # Add states to the container
-        smach.StateMachine.add('FOO', foo.Foo(),
+        smach.StateMachine.add('FOO', foo.Foo(heave),
                                transitions={'outcome1':'BAR',
                                             'outcome2':'outcome4'})
         smach.StateMachine.add('BAR', Bar(),
