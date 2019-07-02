@@ -57,8 +57,8 @@ def main():
 	surge = Axis("surge")
 	sway = Axis("sway")
 	heave = Axis("heave")
-#	roll = Axis("roll")
-#	pitch = Axis("pitch")
+	#roll = Axis("roll")
+	#pitch = Axis("pitch")
 	yaw = Axis ("yaw")
 
 	rospy.logwarn(1)
