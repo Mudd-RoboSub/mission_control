@@ -17,7 +17,7 @@ from actionlib_msgs.msg import *
 import roslib; roslib.load_manifest('mission_control')
 
 
-
+'''
 # define state Bar
 class Bar(smach.State):
     def __init__(self):
@@ -26,7 +26,7 @@ class Bar(smach.State):
     def execute(self, userdata):
         rospy.loginfo('Executing state BAR')
         return 'outcome2'
-
+'''
 
 
 def setEnabledClient(axis, setpoint):
@@ -41,10 +41,11 @@ def setEnabledClient(axis, setpoint):
 
 # main
 def main():
-    rospy.init_node('smach_example_state_machine')
+    rospy.init_node('smach_example_state_machine') # change name????
     rospack = rospkg.RosPack()
-    pidPath = rospack.get_path('mission_control') + '/src/Mission/Tasks/Foo.py'
-    rospy.loginfo("Path %s", pidPath)
+    post_gate_path = rospack.get_path('mission_control') + '/src/Mission/Tasks/Post_gate.py'
+    pass_gate_path = rospack.get_path('mission_control') + '/src/Mission/Tasks/Pass_gate.py'
+    rospy.loginfo("Path %s", post_gate_path)
 
     '''
     axis = "surge"
@@ -53,12 +54,12 @@ def main():
     print "%s + %s = %s"%(axis, value, setEnabledClient(axis, value))
     '''
     rospy.logwarn(0)
-#    surge = Axis("surge")
-#    sway = Axis("sway")
+    surge = Axis("surge")
+    sway = Axis("sway")
     heave = Axis("heave")
 #    roll = Axis("roll")
 #    pitch = Axis("pitch")
-#    yaw = Axis ("yaw")
+    yaw = Axis ("yaw")
 
     rospy.logwarn(1)
     heave.setEnabled(True)
@@ -70,21 +71,24 @@ def main():
 
 
 
-    foo = imp.load_source('Foo', pidPath)
+    post_gate = imp.load_source('Post_gate', post_gate_path)
+	pass_gate = imp.load_source('Pass_gate',pass_gate_path)
+
 
     # Create a SMACH state machine
-    sm = smach.StateMachine(outcomes=['outcome4', 'outcome5'])
+    sm = smach.StateMachine(outcomes=['stop'])
+	
+	#sm.userdata = ???
 
     # Open the container
     with sm:
 
         # Add states to the container
-        smach.StateMachine.add('FOO', foo.Foo(heave),
-                               transitions={'outcome1':'BAR',
-                                            'outcome2':'outcome4'})
-        smach.StateMachine.add('BAR', Bar(),
-                               transitions={'outcome2':'FOO'})
-
+        smach.StateMachine.add('Pass_gate', pass_gate.Pass_gate(surge,yaw),
+                               transitions={'pass_gate_1':'Post_gate', 'pass_gate_2':'stop'}
+							   )
+        smach.StateMachine.add('Post_gate', post_gate.Post_gate(surge,yaw),
+                               transitions={'complete_marker':'Pass_gate'})
 
 
     sis = smach_ros.IntrospectionServer('server_name', sm, '/SM_ROOT')
