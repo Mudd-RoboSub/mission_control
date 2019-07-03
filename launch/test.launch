@@ -8,7 +8,7 @@
   <rosparam file="$(find mission_control)/include/mission_control/pid/tune/YAW.yaml" />
   <rosparam file="$(find mission_control)/include/mission_control/pid/tune/inputs.yaml"/>
 
-  <include file="$(find imu_vn_100)/launch/vn_100_cont.launch" />
+<!--  <include file="$(find imu_vn_100)/launch/vn_100_cont.launch" /> -->
   <include file="$(find thruster_control)/launch/thrust.launch" />
 
   <node name="pid_heave" pkg="mission_control" type="pid_axis" output="screen">
@@ -25,13 +25,14 @@
   <!-- <node name="zOrientation" pkg="topic_tools" type="transform"
     args="/imu/imu /zOrientation std_msgs/Float64 'm.orientation.z'" /> -->
 
-  <node name="yaw_correct" pkg="mission_control" type="Yaw.py" />
-<!--  <node name="smach" pkg="mission_control" type="StateMachine.py" output="screen"/> -->
+ <node name="yaw_correct" pkg="mission_control" type="Yaw.py" output="screen" />
+<node name="smach" pkg="mission_control" type="StateMachine.py" output="screen"/>   
+
 
 
 
   <!-- <node name="rqt_reconfigure" pkg="rqt_reconfigure" type="rqt_reconfigure" /> -->
 
-  <node name="depth" pkg="sense" type="depth.py" />
+  <!-- <node name="depth" pkg="sense" type="depth.py" /> -->
 
 </launch>

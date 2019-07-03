@@ -19,7 +19,7 @@ class Yaw:
         print("almost")
 
         self.plantPub = rospy.Publisher('/yawPlantStateNorm', Float64, queue_size=5)
-        self.setpointPub = rospy.Publisher('/yawSetpointNorm', Float64, queue_size=5)
+        self.setpointPub = rospy.Publisher('/yawSetpointNorm', Float64, queue_size=5, latch=True)
         self.prevPlantNorm = 0
         rospy.loginfo("init")
 
@@ -28,25 +28,39 @@ class Yaw:
         if(len(topic) == 0):
             return False
         else:
-			if(topic != self.plantTopic):
-				self.plantSub = rospy.Subscriber(topic, Float64, self.plantCB)
-				self.plantTopic = topic
+	    if(topic != self.plantTopic):
+	      self.plantSub = rospy.Subscriber(topic, Float64, self.plantCB)
+	      self.plantTopic = topic
             return True
 
     def plantCB(self, data):
-        self.plantState = data.data
+        self.plantState = data.data % 360
 
     def subCB(self, data):
-        self.setpoint = data.data
+        self.setpoint = data.data % 360
 
     def getNormalizedPlant(self):
+	
         self.updatePlantTopic()
         distCW = abs(self.setpoint - self.plantState) % 360
         distCCW = -1*abs((360 - (self.setpoint - self.plantState))%360)
-        if(abs(distCW) < abs(distCCW)):
-            return distCW
+        #print("CW: {} CCW: {} CW < CCW? {}".format(distCW, distCCW, abs(distCW) < abs(distCCW)))
+	if(abs(distCW) < abs(distCCW)):
+            code1 = distCW
         else:
-            return distCCW
+            code1 = distCCW
+	if code1>180:
+		rospy.logwarn("BROKEEEEEEEEEEEEEEN")
+	absDist = abs(self.setpoint-self.plantState) % 360
+	d = min(absDist, 360 - absDist)
+	expected = (self.setpoint+d) % 360
+	if expected  == self.plantState:
+		sign = -1	
+	else:
+		sign = 1
+	#rospy.logwarn("set %d, plant %d, d %d, expected %d, out %d", self.setpoint, self.plantState, d, expected, sign*d)
+	return d * sign
+	
 
 def main():
     rospy.init_node('yaw_normalize')

@@ -132,14 +132,18 @@ bool PidManager::setpointServiceCB(mission_control::SetpointService::Request &re
   double setpoint = req.value;
   std::transform(axis.begin(), axis.end(),axis.begin(), ::tolower);
 
+  
   if(std::find(PidUtils::AxisStrings.begin(), PidUtils::AxisStrings.end(), axis) != PidUtils::AxisStrings.end()) {
+    selectAxis(axis).setSetpoint(setpoint);
     Axis& currentAxis = selectAxis(axis);
+  
+    selectAxis(axis).setSetpoint(setpoint);
+
     if(!currentAxis.isEnabled()){
       ROS_INFO("Implicitly enabling %s pid loop in order to set the setpoint.", axis.c_str());
       currentAxis.setPidEnabled(true);
     }
 
-    selectAxis(axis).setSetpoint(setpoint);
   }
   else {
       ROS_FATAL("Axis string provided (%s) is invalid.", axis.c_str());

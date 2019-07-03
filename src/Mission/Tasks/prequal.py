@@ -44,7 +44,7 @@ class Prequal(smach.State):
 
 class Navigate(smach.State):
 
-	def __init__(self,surge,yaw, initialDegree=20, timeToMarker= 1, timeBehindMarker=1, speed = 0.25):
+	def __init__(self,surge,yaw, initialDegree=9, timeToMarker= 60, timeBehindMarker=13, speed = 0.25):
 		smach.State.__init__(self	,outcomes = ['success', 'abort'])
 		self.surge =  surge
 		self.yaw = yaw
@@ -55,22 +55,25 @@ class Navigate(smach.State):
 
 	def execute(self, userdata):
 		rospy.logwarn("1")
-		self.yaw.setZero()
+
 		rospy.logwarn("2")
-		self.yaw.setSetpoint(-1* self.initialDegree)
-		rospy.sleep(1)
+		self.rotateTo(0)
+		#rospy.sleep(0.5)
 		rospy.logwarn("2.5")
 		self.surge.setControlEffort(self.speed)
 		rospy.logwarn("3")
 		rospy.sleep(self.timeToMarker)
 		self.surge.setControlEffort(0)
 		rospy.logwarn("4")
-		self.yaw.setSetpoint(90+self.initialDegree)
+		self.rotateTo(98.6)
+		
 		self.surge.setControlEffort(self.speed)
 		rospy.sleep(self.timeBehindMarker)
 		self.surge.setControlEffort(0)
-		
-		self.yaw.setSetpoint(90+self.initialDegree)
+	
+		self.rotateTo(193)
+		self.surge.setControlEffort(self.speed)
+		rospy.sleep(300)
 		'''
 		self.yaw.setSetpoint(userdata.post_gate_input)
 		
@@ -82,15 +85,31 @@ class Navigate(smach.State):
 		# now we transition to state machine pass_gate
 		return "success"	
 
+	def rotateTo(self, angle):
+		count = 0
+		self.yaw.setSetpoint(angle)
+		done = False
+		rate = rospy.Rate(50)
+		while not done:
+		#	rospy.logwarn("count %d, plant %d, setpoint %d", count, self.yaw.plantState%360, self.yaw.setpoint%360)
+			if(abs((self.yaw.plantState%360) - (self.yaw.setpoint%360)) < 2):
+				count += 1
+				if(count > 100):
+					rospy.logwarn("DONE")
+					return True
+			else:
+				count = 0
+			rate.sleep()			
+
 class Localize(smach.State):
 	def __init__(self, yaw):
-		smach.State.__init__(self	,outcomes = ['success', 'repeat','abort'],\
-								output_keys=['done'])	
+		smach.State.__init__(self, outcomes = ['success', 'repeat','abort'])	
 		self.localization = rospy.Subscriber("gateState", gate, self.gateCB)
 		self.left, self.div, self.right = None, None, None
 		self.leftConf, self.divConf, self.rightConf = None, None, None
 		self.yaw = yaw
 		
+		self.pub = rospy.Publisher("gateReset", Bool, queue_size=1, latch=True)
 	def gateCB(self,data):
 		self.left = data.left
 		self.div = data.div
@@ -101,66 +120,79 @@ class Localize(smach.State):
 		self.divConf = data.divConf
 	
 	def execute(self, userdata):
-		pub = rospy.Publisher("gateReset", Bool, queue_size=1)
-		
+		rospy.sleep(0.5)
 		#look for the gate
 		start = time()		
-		pub.publish(data=True)
+		self.pub.publish(data=True)
+		prevLeftConf , prevRightConf = 0,0
 		#TODO: at some point we should make this so we search
 		while self.leftConf < 2.75 or self.rightConf < 2.75:
-			rospy.loginfo("left conf: {} right conf: {}".format(self.leftConf, self.rightConf))
+			if(prevLeftConf != self.leftConf or prevRightConf != self.rightConf):
+				rospy.logwarn("left conf: {} right conf: {}".format(self.leftConf, self.rightConf))
 			rospy.sleep(.01)
+			prevLeftConf = self.leftConf
+			prevRightConf = self.rightConf
 			if time() - start > 100:
 				return 'abort'
 	
-		goal = (self.left + self.right)/2 + yaw.plantState
+		goal = (self.left + self.right)/2 + self.yaw.zeroedPlantState
 		rospy.logwarn("THE GOAL IS TO ROTATE TO:{}".format(goal))
 		print(goal)
 		self.yaw.setSetpoint( goal )
 	
 		
 		#rotate to the gate
-		complete= False
-		start = time()
-		while not complete and not rospy.is_shutdown() :
-			print("PLANT STATE", self.yaw.plantState)
-			complete = goal - abs(self.yaw.plantState) < 3
-			rospy.sleep(.01)
-			if time()-start > 10:
-				return 'abort'
-		
-		
+		self.rotateTo(goal)
+		rospy.logwarn("ROTATED TO GATE")	
 		#check if we did it well
-		pub.publish(data=True)
-		while self.leftConf < 2.75 or self.rightConf < 2.75:
-			rospy.sleep(.01)
-			if time() - start > 100:
-				return 'abort'
+		#pub.publish(data=True)
+		#while self.leftConf < 2.75 or self.rightConf < 2.75:
+		#	rospy.sleep(.01)
+		#	if time() - start > 100:
+		#		return 'abort'
 
-		goal = (self.left+self.right)/2 + yaw.plantState
+		#goal = (self.left+self.right)/2 + self.yaw.zeroedPlantState
 		
-		if abs(self.yaw.plantState-goal)<3:
-			if abs(self.right-self.left)>30:
-				userdata.done = True
-				return 'success'
-			else:
-				return 'success'
-		else:
-			return "repeat"
+		#if abs(self.yaw.plantState - goal)<5:
+		#	if abs(self.right-self.left)>30:
+		#		userdata.done = True
+		#		return 'success'
+		#	else:
+		#		return 'success'
+		#else:
+		#	return "repeat"
 		
+		return 'success'
+        def rotateTo(self, angle):
+                count = 0
+                self.yaw.setSetpoint(angle)
+                done = False
+                rate = rospy.Rate(50)
+                while not done:
+                        #rospy.logwarn("count %d, plant %d, setpoint %d", count, self.yaw.plantState%360, self.yaw.setpoint%360)
+                        if(abs((self.yaw.plantState%360) - (self.yaw.setpoint%360)) < 2):
+                                count += 1
+                                if(count > 100):
+                                        rospy.logwarn("DONE")
+                                        return True
+                        else:
+                                count = 0
+                        rate.sleep()
+
 		
 class MoveToGate(smach.State):
-	def __init__(self,surge, speed = 0.25):
-		smach.State.__init__(self	,outcomes = ['success', 'abort','repeat'],input_keys=["done"])
+	def __init__(self,surge, speed = 0.2):
+		smach.State.__init__(self	,outcomes = ['success', 'abort','repeat'],input_keys=["count", "numReps"], output_keys=['count'])
 		self.surge =  surge
 		self.speed = speed
 
 	def execute(self, userdata):
-		
+		userdata.count += 1
 		self.surge.setControlEffort(self.speed)
-		rospy.sleep(5)
-		if userdata.done:
-			rospy.sleep(5)
+		rospy.logwarn("COUNT %d", userdata.count)
+		rospy.sleep(8)
+		if userdata.count >= userdata.numReps:
+			rospy.sleep(8)
 			self.surge.setControlEffort(0)
 			return 'success'
 		else:	

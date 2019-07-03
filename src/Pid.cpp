@@ -213,6 +213,10 @@ void Pid::executeController(double timePassed){
   proportional = kP_ * error_.at(0);
   integral = kI_ * errorIntegral_;
   derivative = kD_ * FIRDeriv_;
+  
+  if((int)(timePassed * 100) % 100 == 0 && axis_ == "YAW")
+    ROS_INFO("PROP %f, INT %f, DER %f", proportional, integral, derivative);
+  derivFile << error_.at(0) << "," <<  proportional << "," << integral << "," << derivative << "\n";
   if(integral > .3) integral = .3;
   if(derivative > .3) derivative = .3;
 
@@ -268,7 +272,7 @@ void Pid::updateErrors(double timePassed){
 
 
     derivQueue_.push_back(filteredErrorDeriv_.at(0));
-    if(derivQueue_.size() > 100)
+    if(derivQueue_.size() > 20)
       derivQueue_.pop_front();
     double sum = 0;
     for(double i : derivQueue_)
@@ -278,9 +282,9 @@ void Pid::updateErrors(double timePassed){
 
      filteredDeriv_ = .92*filteredDeriv_ + .08*errorDeriv_.at(0);
      doubleFilteredDeriv_ =.9*doubleFilteredDeriv_ + .1*filteredErrorDeriv_.at(0);
-     if(axis_ == "HEAVE")
+     if(axis_ == "YAW")
 
-       derivFile << axis_ << ","<< plantState_ <<","<<  errorDeriv_.at(0) << "," << filteredErrorDeriv_.at(0)<< "," << doubleFilteredDeriv_  << "," << FIRDeriv_ << "\n";
+       //derivFile << axis_ << ","<< plantState_ << "," << setpoint_ <<","<<  errorDeriv_.at(0) << "," << filteredErrorDeriv_.at(0)<< "," << doubleFilteredDeriv_  << "," << FIRDeriv_ << "\n";
      prevDerivErr_ = error_.at(0);
    }
      //riemann that boi
@@ -470,6 +474,7 @@ void Pid::plantStateCallback(const std_msgs::Float64& msg){
 }
 
 void Pid::setpointCallback(const std_msgs::Float64& msg){
+  errorIntegral_ = 0;
   updateSetpoint(msg.data);
 }
 
@@ -488,7 +493,7 @@ void Pid::inputCallback(const std_msgs::Int32& msg){
 }
 
 void Pid::flushPidCallback(const std_msgs::Bool& msg){
-  kI_ = 0;
+  errorIntegral_ = 0;
 }
 
 
