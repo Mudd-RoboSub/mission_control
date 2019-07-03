@@ -15,6 +15,7 @@ PidManager::PidManager(ros::NodeHandle nh)
   enabledService_ = nh_.advertiseService("EnabledService", &PidManager::enabledServiceCB, this);
   inputService_ = nh_.advertiseService("InputTypeService", &PidManager::inputServiceCB, this);
   setpointService_ = nh_.advertiseService("SetpointService", &PidManager::setpointServiceCB, this);
+  thrustOverrideService_ = nh_.advertiseService("ThrustOverrideService", &PidManager::thrustOverrideCB, this);
 
   //pause for a bit to let the messages catch up
   ros::Duration(2).sleep();
@@ -27,6 +28,7 @@ PidManager::PidManager(ros::NodeHandle nh)
 void PidManager::setPidEnabled(const PidUtils::Axes& axis, const bool& enabled){
   selectAxis(axis).setPidEnabled(enabled);
 }
+
 
 void PidManager::setPlantState(const PidUtils::Axes& axis, const double& val){
   selectAxis(axis).setPlantState(val);

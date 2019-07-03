@@ -19,7 +19,7 @@ class Axis:
         self._sub = rospy.Subscriber("/none", Float64, self.plantStateCallback)
 
     def plantStateCallback(self, data):
-        self.plantState = data
+        self.plantState = data.data
 
     def updatePlantTopic(self):
         self._sub.unregister()
@@ -43,7 +43,9 @@ class Axis:
         rospy.loginfo("Disabling %s control loop", self._axis)
         self.setEnabled(False);
         self._enabled = False
+        rospy.logwarn("2.375")
         rospy.wait_for_service('ThrustOverrideService')
+        rospy.logwarn("2.625")
         try:
             enabledServiceProxy = rospy.ServiceProxy('ThrustOverrideService', ThrustOverrideService)
             res = enabledServiceProxy(self._axis, val)
@@ -65,26 +67,24 @@ class Axis:
 
 
     def setZero(self, zero=None):
-        sum = 0.0
-	rospy.logwarn("HEREHEREHERHE {}".format(self.plantTopic))
-        for i in range(10):
-            sum += rospy.wait_for_message(self.plantTopic, Float64).data
-        avg = sum / 10
-        rospy.loginfo("Setting heave zero on {} to {}".format(self._input, avg))
-        self._zeros[self._input] = avg
+		sum = 0.0
+		rospy.logwarn("HEREHEREHERHE {}".format(self.plantTopic))
+		for i in range(10):
+			sum += rospy.wait_for_message(self.plantTopic, Float64).data
+		avg = sum / 10
+		rospy.loginfo("Setting heave zero on {} to {}".format(self._input, avg))
+		self._zeros[self._input] = avg
 
     def goTo(self, target, delay = 1):
-        self.setSetpoint(target + self._zeros[_input])
+        self.setSetpoint(target + self._zeros[self._input])
         tStart = rospy.get_time()
         while(rospy.get_time() - tStart < 1000*delay):
-            rospy.spinOnce()
             rospy.sleep(0.1)
 
     def increment(self, target, delay = 1):
-        self.setSetpoint(target + self.plantState)
+        self.setSetpoint(target + self.plantState + self._zeros[self._input])
         tStart = rospy.get_time()
         while(rospy.get_time() - tStart < 1000*delay):
-            rospy.spinOnce()
             rospy.sleep(0.1)
 
 
@@ -103,3 +103,5 @@ class Axis:
 	    return False
         self.updatePlantTopic()
         return res.success
+        
+	

@@ -9,14 +9,16 @@
   <rosparam file="$(find mission_control)/include/mission_control/pid/tune/inputs.yaml"/>
 
   <include file="$(find imu_vn_100)/launch/vn_100_cont.launch" />
-  <include file="$(find thruster_control)/launch/thrust.launch" />
 
   <node name="pid_heave" pkg="mission_control" type="pid_axis" output="screen">
     <param name="axis" value="2"/>
+	<param name="max_effort" value="0.6"/>
     <param name="inputType" value="2"/>
   </node>
+  
   <node name="pid_yaw" pkg="mission_control" type="pid_axis" output="screen">
     <param name="axis" value="5"/>
+    <param name="max_effort" value="0.12"/>
     <param name="inputType" value="0"/>
   </node>
 
@@ -26,7 +28,7 @@
     args="/imu/imu /zOrientation std_msgs/Float64 'm.orientation.z'" /> -->
 
   <node name="yaw_correct" pkg="mission_control" type="Yaw.py" />
-<!--  <node name="smach" pkg="mission_control" type="StateMachine.py" output="screen"/> -->
+  <node name="smach" pkg="mission_control" type="StateMachine.py" output="screen"/> 
 
 
 

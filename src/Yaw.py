@@ -18,7 +18,7 @@ class Yaw:
             rospy.sleep(0.01)
         print("almost")
 
-        self.plantPub = rospy.Publisher('/yawPlantState', Float64, queue_size=5)
+        self.plantPub = rospy.Publisher('/yawPlantStateNorm', Float64, queue_size=5)
         self.setpointPub = rospy.Publisher('/yawSetpointNorm', Float64, queue_size=5)
         self.prevPlantNorm = 0
         rospy.loginfo("init")
@@ -28,8 +28,9 @@ class Yaw:
         if(len(topic) == 0):
             return False
         else:
-            self.plantSub = rospy.Subscriber(topic, Float64, self.plantCB)
-            self.plantTopic = topic
+			if(topic != self.plantTopic):
+				self.plantSub = rospy.Subscriber(topic, Float64, self.plantCB)
+				self.plantTopic = topic
             return True
 
     def plantCB(self, data):

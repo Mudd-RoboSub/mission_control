@@ -41,6 +41,7 @@ Pid::Pid(int axis, int input)
   //due to remapping of yaw
   if(axisTopic == "yaw"){
     setpointTopic_ += "Norm";
+    plantStateTopic_ += "Norm";
   }
   enabledTopic_ = axisTopic + "Enabled";
   inputTopic_ = axisTopic + "InputType";
@@ -58,6 +59,7 @@ Pid::Pid(int axis, int input)
   setpointSub_ = nh_.subscribe(setpointTopic_, 0, &Pid::setpointCallback, this);
   enabledSub_ = nh_.subscribe(enabledTopic_, 0, &Pid::enabledCallback, this);
   inputSub_ = nh_.subscribe(inputTopic_, 0, &Pid::inputCallback, this);
+  flushSub_ = nh_.subscribe("flushPID", 0, &Pid::flushPidCallback, this);
 
   //load in relevant parameters from yaml file, select appropriate set based on
   //config
@@ -69,7 +71,7 @@ Pid::Pid(int axis, int input)
 
   if(axisTopic == "yaw"){
     ROS_WARN("HERE, YAW");
-    plantStateSub_ = nh_.subscribe("yawPlantState", 0, &Pid::plantStateCallback, this);
+    plantStateSub_ = nh_.subscribe("yawPlantStateNorm", 0, &Pid::plantStateCallback, this);
   }
 
   if(!plantStateSub_){
@@ -164,7 +166,7 @@ Pid::Pid(int axis, int input)
 
 void Pid::updatePlantSub(){
   //yaw is handled elsewhere
-  ROS_INFO("AxIS %s", axis_.c_str());
+  ROS_INFO("AXIS %s", axis_.c_str());
 
 
   std::string path = axis_ + "/" + inputType_ + "_TOPIC";
@@ -181,7 +183,7 @@ void Pid::updatePlantSub(){
   }
 
   if(axis_ == "YAW"){
-    plantStateSub_ = nh_.subscribe("yawPlantState", 0, &Pid::plantStateCallback, this);
+    plantStateSub_ = nh_.subscribe("yawPlantStateNorm", 0, &Pid::plantStateCallback, this);
     return;
   }
   plantStateSub_ = nh_.subscribe(newTopic, 0, &Pid::plantStateCallback, this);
@@ -483,6 +485,10 @@ void Pid::inputCallback(const std_msgs::Int32& msg){
   }
   else
     updateInputType(inputs_.at(msg.data));
+}
+
+void Pid::flushPidCallback(const std_msgs::Bool& msg){
+  kI_ = 0;
 }
 
 

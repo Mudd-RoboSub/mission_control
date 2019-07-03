@@ -1,5 +1,5 @@
 #Don't edit this file unless you're sure!
-ROLL:
+YAW:
   IMU_POS: [-1,-1,-1]
   IMU_POS_TOPIC: 'none'
   IMU_ACCEL: [-1,-1,-1]

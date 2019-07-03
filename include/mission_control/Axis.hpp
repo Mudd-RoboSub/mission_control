@@ -50,7 +50,7 @@ private:
   std::string controlEffortTopic_;
 
   //published topics
-  std::string setpointTopic_, enabledTopic_, inputTopic_, percentThrustTopic_,
+  std::string setpointTopic_, enabledTopic_, inputTopic_, percentThrustTopic_, 
               plantStateTopic_;
 
   //if we want to manually set percent thrust

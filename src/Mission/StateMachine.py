@@ -7,6 +7,7 @@ import rospkg
 import imp
 import sys
 from Axis import Axis
+from std_msgs.msg import Bool, Float64
 
 #services
 from mission_control.srv import *
@@ -20,82 +21,95 @@ import roslib; roslib.load_manifest('mission_control')
 
 # define state Bar
 class Bar(smach.State):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['outcome2'])
+	def __init__(self):
+		smach.State.__init__(self, outcomes=['outcome2'])
 
-    def execute(self, userdata):
-        rospy.loginfo('Executing state BAR')
-        return 'outcome2'
+	def execute(self, userdata):
+		rospy.loginfo('Executing state BAR')
+		return 'outcome2'
 
 
 
 def setEnabledClient(axis, setpoint):
-    rospy.wait_for_service('EnabledService')
-    try:
-        enabledServiceProxy = rospy.ServiceProxy('EnabledService', EnabledService)
-        res = enabledServiceProxy(axis, setpoint)
-        return res.success
-    except rospy.ServiceException, e:
-        print "Service call failed: %s" %e
+	rospy.wait_for_service('EnabledService')
+	try:
+		enabledServiceProxy = rospy.ServiceProxy('EnabledService', EnabledService)
+		res = enabledServiceProxy(axis, setpoint)
+		return res.success
+	except rospy.ServiceException, e:
+		print "Service call failed: %s" %e
 
 
 # main
 def main():
-    rospy.init_node('smach_example_state_machine')
-    rospack = rospkg.RosPack()
-    pidPath = rospack.get_path('mission_control') + '/src/Mission/Tasks/Foo.py'
-    rospy.loginfo("Path %s", pidPath)
+	rospy.init_node('smach_example_state_machine')
+	rospack = rospkg.RosPack()
+	
+	prequalPath = rospack.get_path('mission_control') + '/src/Mission/Tasks/prequal.py'
 
-    '''
-    axis = "surge"
-    value = False
-    print "Requesting %s+%s"%(axis, value)
-    print "%s + %s = %s"%(axis, value, setEnabledClient(axis, value))
-    '''
-    rospy.logwarn(0)
-#    surge = Axis("surge")
-#    sway = Axis("sway")
-    heave = Axis("heave")
-#    roll = Axis("roll")
-#    pitch = Axis("pitch")
-#    yaw = Axis ("yaw")
-
-    rospy.logwarn(1)
-    heave.setEnabled(True)
-    heave.setInput("DEPTH")
-    heave.setSetpoint(10)
-    rospy.logwarn(2)
-    heave.setZero()
-    rospy.logwarn(3)
+	depthPath = rospack.get_path('mission_control') + '/src/Mission/Tasks/GoToDepth.py'
 
 
+	surge = Axis("surge")
+	heave = Axis("heave")
+	yaw = Axis ("yaw")
 
-    foo = imp.load_source('Foo', pidPath)
+	rospy.logwarn(1)
+	heave.setEnabled(True)
+	heave.setInput("DEPTH")
+	
+	yaw.setEnabled(True)
+	yaw.setInput("IMU_POS")
+	
+	heave.setZero()
+	
+	done = False
 
-    # Create a SMACH state machine
-    sm = smach.StateMachine(outcomes=['outcome4', 'outcome5'])
+	prequal = imp.load_source('prequal', prequalPath)
+	goToDepth = imp.load_source('GoToDepth', depthPath)
 
-    # Open the container
-    with sm:
+	# Create a SMACH state machine
+	sm = smach.StateMachine(outcomes=['success', 'abort'])
+	sm.userdata.done = False
+	sm.userdata.depth = 0.2
+	
+	rospy.logwarn("BEFORE CONTAINER")
 
-        # Add states to the container
-        smach.StateMachine.add('FOO', foo.Foo(heave),
-                               transitions={'outcome1':'BAR',
-                                            'outcome2':'outcome4'})
-        smach.StateMachine.add('BAR', Bar(),
-                               transitions={'outcome2':'FOO'})
+	# Open the container
+	with sm:
 
+		# Add states to the container
+		smach.StateMachine.add('GoToDepth', goToDepth.GoToDepth(heave),
+							   transitions={'success':'Navigate',
+											'abort':'abort'},
+							   remapping={'depth':'depth'})
+										 
+											
+		smach.StateMachine.add('Navigate', prequal.Navigate(surge,yaw),
+							  transitions={'success':'Localize',
+											'abort':'abort'})
+												
+		smach.StateMachine.add('Localize', prequal.Localize(yaw),
+							  transitions={'success':'MoveToGate',
+											'repeat':"Localize",
+											'abort':'abort'},
+							  remapping = {"done":'done'})
+		smach.StateMachine.add("MoveToGate",prequal.MoveToGate(surge),
+								transitions={"success":"success",
+											 "repeat":"Localize",
+											 "abort":"abort"},
+								remapping ={'done':"done"})
 
-
-    sis = smach_ros.IntrospectionServer('server_name', sm, '/SM_ROOT')
-    sis.start()
-
-
-    # Execute SMACH plan
-    outcome = sm.execute()
-    rospy.spin()
-    sis.stop()
+	rospy.logwarn("AFTER CONTAINER")
+	sis = smach_ros.IntrospectionServer('server_name', sm, '/SM_ROOT')
+	sis.start()
+	for i in range(100):
+		print("INTITALIZED")
+	# Execute SMACH plan
+	outcome = sm.execute()
+	rospy.spin()
+	sis.stop()
 
 
 if __name__ == '__main__':
-    main()
+	main()

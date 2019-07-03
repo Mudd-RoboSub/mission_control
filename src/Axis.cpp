@@ -8,7 +8,7 @@ Axis::Axis(std::string axisName, const ros::NodeHandle& nh)
 
 
   //For bypassing PID Control
-  percentThrustTopic_ = axisName + "PercentThrust";
+  percentThrustTopic_ = axisName + "ControlEffort";
 
 
   //PID Interface
@@ -55,7 +55,9 @@ void Axis::setInputType(const PidUtils::Inputs& input){
   inputPub_.publish(msg);
 }
 
+
 void Axis::setPlantState(const double& val){
+  if(axisName_ == "yaw") return;
   std_msgs::Float64 msg;
   msg.data = val;
   plantPub_.publish(msg);

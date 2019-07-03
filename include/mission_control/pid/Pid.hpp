@@ -118,7 +118,7 @@ private:
               inputTopic_;
   std_msgs::Float64 controlEffortMsg_;
   ros::Publisher controlEffortPub_;
-  ros::Subscriber plantStateSub_, setpointSub_, enabledSub_, inputSub_;
+  ros::Subscriber plantStateSub_, setpointSub_, enabledSub_, inputSub_, flushSub_;
 
 
   ///Get new kP, kI, kD values and topic names from config.
@@ -164,7 +164,7 @@ private:
   void setpointCallback(const std_msgs::Float64& msg);
   void enabledCallback(const std_msgs::Bool& msg);
   void inputCallback(const std_msgs::Int32& msg);
-
+  void flushPidCallback(const std_msgs::Bool& msg);
 
 
 
