@@ -31,6 +31,9 @@ private:
 
   void setPercentThrust(const PidUtils::Axes& axis, const double& val);
 
+  //to handle yaw wrapping
+  double yawSetpoint_;
+  ros::Subscriber yawSub_;
 
 
   void CheckStability();

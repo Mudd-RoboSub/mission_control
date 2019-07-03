@@ -9,17 +9,21 @@ Pid::Pid(int axis, int input)
     ROS_INFO("Time is zero. Waiting for the beginning of time.");
     sleep(1);
   }
-
+  std::string filePath = ros::package::getPath("mission_control");
+  filePath += "/include/mission_control/deriv.csv";
+  derivFile.open(filePath);
 
   // Get params if specified in launch file or as params on command-line, set
   // defaults
   nhPriv_.param<double>("Kp", kP_, 1.0);
   nhPriv_.param<double>("Ki", kI_, 0.0);
-  nhPriv_.param<double>("Kd", kD_, 0.0);
+  nhPriv_.param<double>("Kd", kD_, 0.);
   nhPriv_.param<double>("windup_limit", windupLimit_, 100.0);
   nhPriv_.param<double>("cutoff_frequency", cutoffFrequency_, -1.0);
   nhPriv_.param<int>("inputType", inputTypeInt_, input);
   nhPriv_.param<int>("axis", axisInt_, axis);
+
+  derivQueue_ = std::deque<double>();
 
 
   if(inputTypeInt_ == -1) inputType_ = "OTHER_INPUT";
@@ -34,6 +38,10 @@ Pid::Pid(int axis, int input)
   //Now we have enough to generate topic names
   plantStateTopic_ = axisTopic + "PlantState";
   setpointTopic_ = axisTopic + "Setpoint";
+  //due to remapping of yaw
+  if(axisTopic == "yaw"){
+    setpointTopic_ += "Norm";
+  }
   enabledTopic_ = axisTopic + "Enabled";
   inputTopic_ = axisTopic + "InputType";
   controlEffortTopic_ = axisTopic + "ControlEffort";
@@ -54,11 +62,15 @@ Pid::Pid(int axis, int input)
   //load in relevant parameters from yaml file, select appropriate set based on
   //config
   loadParamsFromFile();
-  getParamsFromMap();  
-  
+  getParamsFromMap();
+
   //subscribe appropriately
   updatePlantSub();
 
+  if(axisTopic == "yaw"){
+    ROS_WARN("HERE, YAW");
+    plantStateSub_ = nh_.subscribe("yawPlantState", 0, &Pid::plantStateCallback, this);
+  }
 
   if(!plantStateSub_){
     ROS_ERROR_STREAM("Plant state subscriber initialization failed. Quitting");
@@ -76,12 +88,15 @@ Pid::Pid(int axis, int input)
   f = boost::bind(&Pid::reconfigureCallback, this, _1, _2);
   config_server.setCallback(f);
 
+  int hi = 0;
 
+  derivTime_ = 0;
 
   while(ros::ok()){
 
 
     double timePassed = ros::Time::now().toSec() - prevTime_.toSec();
+    prevTime_ = ros::Time::now();
 
     //get change in time
     if(timePassed == 0){
@@ -91,7 +106,6 @@ Pid::Pid(int axis, int input)
       continue;
     }
 
-    prevTime_ = ros::Time::now();
 
     bool shouldUpdate = false;
 
@@ -128,8 +142,11 @@ Pid::Pid(int axis, int input)
     }
     executeController(timePassed);
 
+    if(hi % 200 == 0)
+      ROS_INFO("Setpoint: %f, Plant State: %f, cE: %f", (float)setpoint_, (float)plantState_, (float)controlEffort_);
+    ++hi;
     //publish the congtrol effort
-    if(enabled_ && prevControlEffort_ != controlEffort_){
+    if(enabled_){
       controlEffortMsg_.data = controlEffort_;
       controlEffortPub_.publish(controlEffortMsg_);
     }
@@ -146,30 +163,41 @@ Pid::Pid(int axis, int input)
 }
 
 void Pid::updatePlantSub(){
+  //yaw is handled elsewhere
+  ROS_INFO("AxIS %s", axis_.c_str());
 
-  
-  std::string newTopic = topicMap_[axis_ + "/" + inputType_ + "_TOPIC"];
-    
+
+  std::string path = axis_ + "/" + inputType_ + "_TOPIC";
+  std::string newTopic = topicMap_[path];
+  nh_.setParam("TOPICS/" + axis_, newTopic);
+
   if(newTopic == "none"){
 	  ROS_WARN("Invalid combination of axis and input type. "
 	           "PID won't work. "
 	           "Plz send help.");
-	  
+
 	  //dummy subscriber so it doesn't kill itself
 	  newTopic = "/none";
   }
-  
-  plantStateSub_ = nh_.subscribe(newTopic, 0, &Pid::plantStateCallback, this);
-  ROS_INFO("Remapped %s plant state to %s", axis_, newTopic);
 
-	
+  if(axis_ == "YAW"){
+    plantStateSub_ = nh_.subscribe("yawPlantState", 0, &Pid::plantStateCallback, this);
+    return;
+  }
+  plantStateSub_ = nh_.subscribe(newTopic, 0, &Pid::plantStateCallback, this);
+  ROS_INFO("Remapped %s plant state to %s", axis_.c_str(), newTopic.c_str()	);
+
+
 }
+
 
 //calculates control effort
 void Pid::executeController(double timePassed){
 
+  error_.at(2) = error_.at(1);
   error_.at(1) = error_.at(0);
   error_.at(0) = getError();
+
 
   if(timePassed == 0){
     ROS_ERROR("No time change detected between loops.");
@@ -178,10 +206,15 @@ void Pid::executeController(double timePassed){
 
   updateErrors(timePassed);
 
-  controlEffort_ = kP_ * error_.at(0) +
-                   kI_ * errorIntegral_ +
-                   kD_ * errorDeriv_.at(0);
+  double proportional, integral, derivative;
 
+  proportional = kP_ * error_.at(0);
+  integral = kI_ * errorIntegral_;
+  derivative = kD_ * FIRDeriv_;
+  if(integral > .3) integral = .3;
+  if(derivative > .3) derivative = .3;
+
+  controlEffort_ = proportional + integral + derivative;
 }
 
 //updates the error and it's integral and deriviatives. Adds neccesary filters.
@@ -211,31 +244,52 @@ void Pid::updateErrors(double timePassed){
                                                               (c_ * c_ - 1.414 * c_ + 1) * filteredError_.at(2) -
                                                               (-2 * c_ * c_ + 2) * filteredError_.at(1));*/
 
-  // Take derivative of error
-  // First the raw, unfiltered data:
-  errorDeriv_.at(2) = errorDeriv_.at(1);
-  errorDeriv_.at(1) = errorDeriv_.at(0);
-  errorDeriv_.at(0) = (error_.at(0) - error_.at(1)) / timePassed;
-
-  filteredErrorDeriv_.at(2) = filteredErrorDeriv_.at(1);
-  filteredErrorDeriv_.at(1) = filteredErrorDeriv_.at(0);
-
-  filteredErrorDeriv_.at(0) = errorDeriv_.at(0);
-  //hey bud your filters suck
-      /*(1 / (1 + c_ * c_ + 1.414 * c_)) *
-      (errorDeriv_.at(2) + 2 * errorDeriv_.at(1) + errorDeriv_.at(0) -
-       (c_ * c_ - 1.414 * c_ + 1) * filteredErrorDeriv_.at(2) - (-2 * c_ * c_ + 2) * filteredErrorDeriv_.at(1));*/
+  //we only calculate the derivative term after a change
+  if(prevDerivErr_ == error_.at(0)){
+    derivTime_ += timePassed;
+  }
+  else{
+    derivTime_ = 0;
+    // Take derivative of error
+    // First the raw, unfiltered data:
+    errorDeriv_.at(2) = errorDeriv_.at(1);
+    errorDeriv_.at(1) = errorDeriv_.at(0);
+    errorDeriv_.at(0) = (error_.at(0) - error_.at(1)) / timePassed;
 
 
-   //riemann that boi
-   errorIntegral_ += timePassed * error_.at(0);
+    filteredErrorDeriv_.at(2) = filteredErrorDeriv_.at(1);
+    filteredErrorDeriv_.at(1) = filteredErrorDeriv_.at(0);
+    filteredErrorDeriv_.at(0) =
+        (1 / (1 + c_ * c_ + 1.414 * c_)) *
+        (errorDeriv_.at(2) + 2 * errorDeriv_.at(1) + errorDeriv_.at(0) -
+         (c_ * c_ - 1.414 * c_ + 1) * filteredErrorDeriv_.at(2) - (-2 * c_ * c_ + 2) * filteredErrorDeriv_.at(1));
 
-   //ROS_INFO("Error %f, Integral %f, Deriv %f", error_.at(0), errorIntegral_, errorDeriv_.at(0));
+
+    derivQueue_.push_back(filteredErrorDeriv_.at(0));
+    if(derivQueue_.size() > 100)
+      derivQueue_.pop_front();
+    double sum = 0;
+    for(double i : derivQueue_)
+      sum += i;
+    FIRDeriv_ = sum / derivQueue_.size();
+
+
+     filteredDeriv_ = .92*filteredDeriv_ + .08*errorDeriv_.at(0);
+     doubleFilteredDeriv_ =.9*doubleFilteredDeriv_ + .1*filteredErrorDeriv_.at(0);
+     if(axis_ == "HEAVE")
+
+       derivFile << axis_ << ","<< plantState_ <<","<<  errorDeriv_.at(0) << "," << filteredErrorDeriv_.at(0)<< "," << doubleFilteredDeriv_  << "," << FIRDeriv_ << "\n";
+     prevDerivErr_ = error_.at(0);
+   }
+     //riemann that boi
+     errorIntegral_ += timePassed * error_.at(0);
+
+     //ROS_INFO("Error %f, Integral %f, Deriv %f", error_.at(0), errorIntegral_, errorDeriv_.at(0));
 }
 
 
 void Pid::updatePlantState(const double& state){
-  ROS_INFO("Plant state changing to %f", state);
+  //ROS_INFO("Plant state changing to %f", state);
   plantState_ = state;
   plantStateChanged_ = true;
 }
@@ -255,7 +309,6 @@ void Pid::updateInputType(std::string input){
   prevInputType_ = inputType_;
   inputType_ = input;
   getParamsFromMap();
-  
   updatePlantSub();
 }
 
@@ -279,16 +332,15 @@ void Pid::loadParamsFromFile(){
       std::pair<std::string, std::vector<double>> mapPair(path, values);
 
       paramMap_.insert(mapPair);
-      
+
       std::string topic;
       path += "_TOPIC";
       nh_.getParam(path, topic);
       std::pair<std::string, std::string> topicPair(path, topic);
-      
+
       topicMap_.insert(topicPair);
-      
-      ROS_WARN("Output: %s", (topicMap_[path]).c_str());
-    
+      // ROS_WARN("Path: %s, Output: %s", path.c_str(), (topicMap_[path]).c_str());
+
     }
   }
 
@@ -310,7 +362,7 @@ void Pid::getParamsFromMap(){
   kP_ = values.at(0);
   kI_ = values.at(1);
   kD_ = values.at(2);
-  
+
   ROS_INFO("Loaded default parameters for %s configuration:"
            "Kp=%f, Ki=%f, Kd=%f", path.c_str(), kP_, kI_, kD_);
 
@@ -348,6 +400,7 @@ void Pid::reconfigureCallback(mission_control::PidConfig& config, uint32_t level
   kP_ = config.Kp;
   kI_ = config.Ki;
   kD_ = config.Kd;
+  errorIntegral_ = 0;
   ROS_INFO("Pid reconfigure request: Kp: %f, Ki: %f, Kd: %f", kP_, kI_, kD_);
 
 }
@@ -382,24 +435,27 @@ void Pid::saveParams(){
 
 void Pid::writeToFile(){
   std::ofstream tuneFile;
-  std::string filePath = ros::package::getPath("mission_control") + "/include/mission_control/pid/tune.yaml";
+  std::string filePath = ros::package::getPath("mission_control");
+  filePath += "/include/mission_control/pid/tune/";
+  filePath += axis_ + ".yaml";
   tuneFile.open(filePath);
-
+  ROS_INFO("TUNEFILE %s", filePath.c_str());
   tuneFile << "#Don't edit this file unless you're sure!" << std::endl;
 
-  for(auto i : axes_){
-    tuneFile << i << ":" << std::endl;
-    for(auto j : inputs_){
-      std::string paramPath = i + "/" + j;
-      ROS_INFO("Path to file: %s", paramPath.c_str());
-      std::vector<double> newParams = paramMap_.at(paramPath);
-      double kP, kI, kD;
-      kP = newParams.at(0);
-      kI = newParams.at(1);
-      kD = newParams.at(2);
-      tuneFile << "  " << j << ": [" << kP << "," << kI << "," << kD << "]" << std::endl;
-    }
+  tuneFile << axis_ << ":" << std::endl;
+  for(auto i : inputs_){
+    std::string paramPath = axis_ + "/" + i;
+    std::vector<double> newParams = paramMap_.at(paramPath);
+    double kP, kI, kD;
+    kP = newParams.at(0);
+    kI = newParams.at(1);
+    kD = newParams.at(2);
+    tuneFile << "  " << i << ": [" << kP << "," << kI << "," << kD << "]" << std::endl;
+
+    std::string topicName = paramPath + "_TOPIC";
+    tuneFile << "  " << i + "_TOPIC" << ": \'" << topicMap_[topicName] << "\'" << std::endl;
   }
+
 
   tuneFile.close();
 
@@ -432,6 +488,7 @@ void Pid::inputCallback(const std_msgs::Int32& msg){
 
 //destructor just writes current vals to file. It's kinda nice
 Pid::~Pid(){
+  derivFile.close();
   writeToFile();
 }
 

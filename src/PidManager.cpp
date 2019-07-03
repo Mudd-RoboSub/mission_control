@@ -16,7 +16,6 @@ PidManager::PidManager(ros::NodeHandle nh)
   inputService_ = nh_.advertiseService("InputTypeService", &PidManager::inputServiceCB, this);
   setpointService_ = nh_.advertiseService("SetpointService", &PidManager::setpointServiceCB, this);
 
-
   //pause for a bit to let the messages catch up
   ros::Duration(2).sleep();
 
@@ -178,7 +177,9 @@ int main(int argc, char** argv){
   // PidManager a(nh_);
 
   PidManager b(nh_);
-  b.setPidEnabled(PidUtils::SURGE);
+  b.setPidEnabled(PidUtils::HEAVE);
+  b.setPidEnabled(PidUtils::YAW);
+
   ros::Rate r(100);
   while(ros::ok){
     ros::spinOnce();

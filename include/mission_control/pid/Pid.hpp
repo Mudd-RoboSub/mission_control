@@ -29,6 +29,7 @@
 #include <iostream>
 #include <ros/package.h>
 #include "mission_control/pid/PidUtils.hpp"
+#include <deque>
 
 class Pid{
 
@@ -59,6 +60,8 @@ private:
 
   bool enabled_;
 
+  std::ofstream derivFile;
+
   std::string inputType_ = "OTHER_INPUT";
   std::string prevInputType_ = "OTHER_INPUT";
   int inputTypeInt_ = -1; //for rosparam usage, immediately casts as enum
@@ -73,10 +76,18 @@ private:
   double setpoint_ = 0;
   double plantState_ = 0;
   std::vector<double> error_ = {0,0,0};
+  std::vector<double> errorDeriv_ = {0,0,0};
+
   std::vector<double> filteredError_ = {0,0,0};
   double errorIntegral_ = 0;
-  std::vector<double> errorDeriv_ = {0,0,0};
   std::vector<double> filteredErrorDeriv_ = {0,0,0};
+  double filteredDeriv_ = 0;
+  double doubleFilteredDeriv_ = 0;
+  std::deque<double> derivQueue_;
+  double FIRDeriv_;
+
+  double derivTime_;
+  double prevDerivErr_;
 
   //has one of parameters recently changed?
   bool setpointChanged_; //goes false once ramp is complete
@@ -114,8 +125,8 @@ private:
   void loadParamsFromFile();
   std::unordered_map<std::string, std::vector<double>> paramMap_;
   std::unordered_map<std::string, std::string> topicMap_;
-  
-  
+
+
   void getParamsFromMap();
   void updatePlantSub();
 
@@ -153,7 +164,7 @@ private:
   void setpointCallback(const std_msgs::Float64& msg);
   void enabledCallback(const std_msgs::Bool& msg);
   void inputCallback(const std_msgs::Int32& msg);
-  
+
 
 
 
