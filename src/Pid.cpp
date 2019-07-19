@@ -154,8 +154,6 @@ void Pid::updatePlantSub(){
   std::string newTopic = topicMap_[path];
   nh_.setParam("TOPICS/" + axis_, newTopic);
 
-
->>>>>>> 06f3ab51954dcfbf68f9dfd67a3a97cec6908c66
   if(newTopic == "none"){
 	  ROS_WARN("Invalid combination of axis and input type. "
 	           "PID won't work. "
@@ -273,7 +271,8 @@ void Pid::loadParamsFromFile(){
     kD_ = 0;
   }
 
-  std::vector<double> values;
+  std::vector<double>
+	  values;
   values.reserve(3);
   std::string path;
 
