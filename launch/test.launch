@@ -10,7 +10,7 @@
 
 <!--  <include file="$(find imu_vn_100)/launch/vn_100_cont.launch" /> -->
   <include file="$(find thruster_control)/launch/thrust.launch" />
-
+  <include file="$(find vision)/launch/cameras.launch"/>
   <node name="pid_heave" pkg="mission_control" type="pid_axis" output="screen">
     <param name="axis" value="2"/>
     <param name="inputType" value="2"/>
@@ -19,6 +19,15 @@
     <param name="axis" value="5"/>
     <param name="inputType" value="0"/>
   </node>
+  <node name="pid_sway" pkg="mission_control" type="pid_axis" output="screen">
+    <param name="axis" value="1"/>
+    <param name="inputType" value="0"/>
+  </node>
+  <node name="pid_surge" pkg="mission_control" type="pid_axis" output="screen">
+    <param name="axis" value="0"/>
+    <param name="inputType" value="0"/>
+  </node>
+	
 
   <node name="pid_manager" pkg="mission_control" type="pid_manager" />
 

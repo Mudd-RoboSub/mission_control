@@ -1,3 +1,4 @@
+# define state Foo
 import rospy
 import smach
 import smach_ros
@@ -5,29 +6,28 @@ from time import time
 from std_msgs.msg import Bool
 
 
-class GoToDepth(smach.State):
-    def __init__(self, heave):
+class RotateTo(smach.State):
+    def __init__(self, yaw, increment=False, direction=1):
         smach.State.__init__(self,
                              outcomes=['success', 'abort'],
-				input_keys=['depth', 'timeout', 'increment', 'direction'])
-        self.heave = heave
+				input_keys=['angle', 'timeout'])
+	self.yaw = yaw
+	self.increment = increment
+	self.direction = direction
 
     def execute(self, userdata):
-		setpoint = userdata.depth
-		if userdata.increment:
-			setpoint = self.heave.zeroedPlantState + userdata.depth * userdata.direction
-
-		self.heave.setSetpoint(setpoint)
+		angle = userdata.angle
+		if self.increment:
+			angle += self.yaw.zeroedPlantState
+		angle *= self.direction
+		self.yaw.setSetpoint(angle)
 		loopRate = rospy.Rate(50)
 		tStart = time()
 		done = False
                 successCount = 0
 		while not done:
 			
-			while not rospy.is_shutdown() and time() - tStart < 1:
-				loopRate.sleep()
-			if(abs(self.heave.plantState - self.heave.setpoint) < .025):
-				rospy.logwarn("9")
+			if(abs((self.yaw.plantState%360) - (self.yaw.setpoint%360)) < 2):
 				successCount += 1	
 				if(successCount > 50):
 					done = True

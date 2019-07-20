@@ -141,29 +141,13 @@ class Localize(smach.State):
 		self.yaw.setSetpoint( goal )
 	
 		
-		#rotate to the gate
 		self.rotateTo(goal)
 		rospy.logwarn("ROTATED TO GATE")	
-		#check if we did it well
-		#pub.publish(data=True)
-		#while self.leftConf < 2.75 or self.rightConf < 2.75:
-		#	rospy.sleep(.01)
-		#	if time() - start > 100:
-		#		return 'abort'
-
-		#goal = (self.left+self.right)/2 + self.yaw.zeroedPlantState
-		
-		#if abs(self.yaw.plantState - goal)<5:
-		#	if abs(self.right-self.left)>30:
-		#		userdata.done = True
-		#		return 'success'
-		#	else:
-		#		return 'success'
-		#else:
-		#	return "repeat"
-		
 		return 'success'
-        def rotateTo(self, angle):
+        
+
+
+	def rotateTo(self, angle):
                 count = 0
                 self.yaw.setSetpoint(angle)
                 done = False

@@ -6,75 +6,33 @@ import smach_ros
 import rospkg
 import imp
 import sys
+rospack = rospkg.RosPack()
+rospack.list()
+taskPath = rospack.get_path('mission_control') + "/src/Mission/Tasks"
+sys.path.append(taskPath)
 from Axis import Axis
 from std_msgs.msg import Bool, Float64
 from BetterConcurrence import *
+from UtilStates import *
+from GoToDepth import *
+from RotateTo import *
+import Gate
+import Buoy
 
 #services
 from mission_control.srv import *
 
-from actionlib import *
-from actionlib_msgs.msg import *
-
 import roslib; roslib.load_manifest('mission_control')
 
 
-class MonitorStart(smach.State):
-	
-	def __init__(self, target=True):
-		smach.State.__init__(self, outcomes=['True', 'False'])
-		self.startSub = rospy.Subscriber("start", Bool, self.startCB)	
-		self.start = None
-		self.target = target
-
-	def startCB(self, data):
-		self.start = data.data
-
-	def execute(self, userdata):
-		rate = rospy.Rate(20)
-		
-		while not rospy.is_shutdown():
-			if self.start is not None and self.start == self.target:
-				return 'True' if self.start else 'False'
-			rate.sleep() 
-
-class Reset(smach.State):
-
-	def __init__(self):
-		smach.State.__init__(self, outcomes=['success', 'abort'])
-		self.thrusterPub = rospy.Publisher("thrustEnable", Bool, latch=True, queue_size=1)	
-	
-
-	def execute(self, userdata):
-		self.thrusterPub.publish(data=False)
-		return 'success'
-
-class Dead(smach.State):
-	def __init__(self):
-		smach.State.__init__(self, outcomes=['success', 'kill'])
-		self.a = 0
-	def execute(self, userdata):
-		self.__init__()
-		rospy.logwarn("the value of a %d", self.a)
-		self.a = 1
-		try:
-			while not rospy.is_shutdown():
-				rospy.sleep(2)
-				return 'success'
-		except PreemptException:
-			print("HERHE:LKEHR:LIHEN:LINFS:OHI*E:LNKSDF:HIE")
-	def request_preempt(self):
-		self._preempt_requested=True
 
 # main
 def main():
 	rospy.init_node('state_machine')
 	rospack = rospkg.RosPack()
 	rospy.sleep(2)	
-	prequalPath = rospack.get_path('mission_control') + '/src/Mission/Tasks/prequal.py'
-
-	depthPath = rospack.get_path('mission_control') + '/src/Mission/Tasks/GoToDepth.py'
-
+	
+	sway = Axis("sway")
 	surge = Axis("surge")
 	heave = Axis("heave")
 	yaw = Axis ("yaw")
@@ -85,12 +43,13 @@ def main():
 	yaw.setEnabled(False)
 	yaw.setInput("IMU_POS")
 	
+	sway.setInput("IMU_POS")
+	sway.setEnabled(False)	
+
         #yaw.setSetpoint(0)	
 	done = False
-
-	prequal = imp.load_source('prequal', prequalPath)
-	goToDepth = imp.load_source('GoToDepth', depthPath)
-
+	direction = 1
+	timeout = 31415926
 
 	rospy.logwarn("complete loading")
 
@@ -101,33 +60,30 @@ def main():
 	Mission.userdata.done = False
 	Mission.userdata.count = 0
 	Mission.userdata.numReps = 4
-	Mission.userdata.depth = 1.3
+	Mission.userdata.depth = 0.4
+	Mission.userdata.timeout = 234523413
+	Mission.userdata.zero = 0
+	
 	rospy.logwarn("BEFORE CONTAINER")
+	# direction:=1 for clockwise
+	gate = Gate.StateMachine(surge, sway, yaw, timeout, 2.75,direction=1)
+	buoy = Buoy.StateMachine(surge,sway,heave,yaw,timeout,-589)
 
 	# Open the container
 	with Mission:
 
+		smach.StateMachine.add('Buoy', buoy, transitions={'success':'success','abort':'abort'})											
 		# Add states to the containe
 		#smach.StateMachine.add("WaitForStart", smach_ros.MonitorState("/start", Bool, startCB), transitions={'valid':"GoToDepth", "invalid":"WaitForStart", "preempted":"WaitForStart"})
-		smach.StateMachine.add('GoToDepth', goToDepth.GoToDepth(heave, yaw),
-							   transitions={'success':'Navigate',
+		smach.StateMachine.add('Zero', Zero(heave, yaw), transitions={'success':'GoToDepth'})
+		smach.StateMachine.add('GoToDepth', GoToDepth(heave),
+							   transitions={'success':'CorrectToZero',
 											'abort':'abort'},
 							   remapping={'depth':'depth'})
-										 
-											
-		smach.StateMachine.add('Navigate', prequal.Navigate(surge,yaw),
-							  transitions={'success':'success',
-											'abort':'abort'})
-												
-		smach.StateMachine.add('Localize', prequal.Localize(yaw),
-							  transitions={'success':'MoveToGate',
-											'repeat':"Localize",
-											'abort':'abort'})
-		smach.StateMachine.add("MoveToGate",prequal.MoveToGate(surge),
-								transitions={"success":"success",
-											 "repeat":"Localize",
-											 "abort":"abort"},
-								remapping ={'count':"count", 'numReps':'numReps'})
+		smach.StateMachine.add('CorrectToZero',RotateTo(yaw),
+							transitions={'success':'Gate','abort':'abort'},
+							remapping={'timeout':'timeout','angle':'zero'})									 
+		smach.StateMachine.add('Gate', gate, transitions={'success':'Buoy','abort':'abort'})
 
 
 
@@ -137,7 +93,7 @@ def main():
 		if outcome_map['MonitorKill'] == 'False':
 			return True
 		return False
-			
+			 
 
 	def outcomeCB(outcome_map):
 		if outcome_map['MonitorKill'] == 'False':
@@ -145,12 +101,12 @@ def main():
 			return 'kill'
 		return 'success'
 
-	SafeExecute = BetterConcurrence(outcomes = ['kill','success'], default_outcome='kill', 
-			 outcome_map={'success':{'Mission':'success'}, 'kill':{'MonitorKill':'False'}})
+	SafeExecute = BetterConcurrence(outcomes = ['kill','abort', 'success'], default_outcome='kill', 
+			 outcome_map={'success':{'Mission':'success'}, 'abort':{'Mission': 'abort'}, 'kill':{'MonitorKill':'False'}})
 					
 	with SafeExecute:
 		BetterConcurrence.add("MonitorKill", MonitorStart(target=False))
-		BetterConcurrence.add("Mission", Dead())
+		BetterConcurrence.add("Mission", Mission)
 
 	
 
@@ -161,8 +117,10 @@ def main():
 	with Top:
 		smach.StateMachine.add('WaitForStart', MonitorStart(), 
 					transitions={'True':'Run', 'False':'WaitForStart'})
-		smach.StateMachine.add("Run", SafeExecute, transitions={'success':'Reset', 'kill': 'Reset'})
-		smach.StateMachine.add("Reset", Reset(), transitions={'success':'WaitForStart', 'abort':'Dead'})
+		smach.StateMachine.add("Run", SafeExecute, transitions={'success':'ResetSuccess', 'kill': 'ResetAbort', 'abort':'ResetAbort'})
+		smach.StateMachine.add("ResetAbort", Reset(), transitions={'success':'WaitForStart', 'abort':'Dead'})
+		smach.StateMachine.add("ResetSuccess", Reset(), transitions={'success':'WaitForReset', 'abort':'Dead'})
+		smach.StateMachine.add("WaitForReset", MonitorStart(target=False), transitions={'True':'WaitForReset', 'False':'WaitForStart'})
 		smach.StateMachine.add("Dead", Dead(), transitions={'success':'Dead', 'kill':'Dead'})
 
 
