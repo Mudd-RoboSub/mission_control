@@ -50,7 +50,6 @@ class FindHeave(smach.State):
 				     input_keys = ['timeout', 'target', 'inDirection'], output_keys=['direction'])
 
                 self.heave, self.heaveConf = None, 1
-				self.left = left
 	def buoyCB(self, data):
 				
                 self.firstHeave, self.firstHeaveConf = data.firstHeave, data.firstHeaveConf
@@ -73,7 +72,7 @@ class FindHeave(smach.State):
 #	def __init__(self):
 #		smach.State.__init__(self,outcomes=
 #left is whether it is left gate. Passes to localize
-def searchRoutine(yaw,initialAngle,finalAngle,left):
+def searchRoutine(yaw,initialAngle,finalAngle,left=True):
 	searchSpan = finalAngle - initialAngle
 	direction = searchSpan > 0
 	searchSpan = abs(searchSpan)
@@ -87,7 +86,7 @@ def searchRoutine(yaw,initialAngle,finalAngle,left):
 	search.userdata.initialAngle = initialAngle
 	
 	with search:
-		container_sm = smach.StateMachine(outcomes = ['success', 'failure','abort','continue'],
+		container_sm = smach.StateMachine(outcomes = ['success', 'abort','continue'],
 						output_keys=['outAngle'])
 		container_sm.userdata.timeout = 500
 		container_sm.userdata.angle = 20
@@ -166,7 +165,7 @@ def bumpBuoy(surge, sway, yaw, timeout):
 	        it = smach.Iterator(outcomes=['success', 'abort'], input_keys=[], output_keys=[],
                                 it= lambda: range(0, numIt),
                                 it_label='index',
-                                exhausted_outcome='abort')
+                                exhausted_outcome='success')
 		with it:
 			container_sm = smach.StateMachine(outcomes=['success','abort','continue'])
 		
@@ -185,7 +184,7 @@ def bumpBuoy(surge, sway, yaw, timeout):
 				smach.StateMachine.add('RotateTo', RotateTo(yaw),
 					transitions={'success':'continue', 'abort':'abort'},
 					remapping={'timeout':'timeout','angle':'angle'})
-			smach.Iterator.set_contained_state("CONTAINED", container_sm, loop_outcomes=['continue'])
+			smach.Iterator.set_contained_state("BumpIt", container_sm, loop_outcomes=['continue'])
 
 		smach.StateMachine.add("BUMP_IT", it,
 			transitions={'success':'success', 'abort':'abort'})
