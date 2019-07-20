@@ -6,96 +6,143 @@ import smach_ros
 import rospkg
 import imp
 import sys
+rospack = rospkg.RosPack()
+rospack.list()
+taskPath = rospack.get_path('mission_control') + "/src/Mission/Tasks"
+sys.path.append(taskPath)
 from Axis import Axis
+from std_msgs.msg import Bool, Float64
+from BetterConcurrence import *
+from UtilStates import *
+from GoToDepth import *
+from RotateTo import *
+import Gate
+import Buoy
 
 #services
 from mission_control.srv import *
-
-from actionlib import *
-from actionlib_msgs.msg import *
 
 import roslib; roslib.load_manifest('mission_control')
 
 
 
-# define state Bar
-class Bar(smach.State):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['outcome2'])
-
-    def execute(self, userdata):
-        rospy.loginfo('Executing state BAR')
-        return 'outcome2'
-
-
-
-def setEnabledClient(axis, setpoint):
-    rospy.wait_for_service('EnabledService')
-    try:
-        enabledServiceProxy = rospy.ServiceProxy('EnabledService', EnabledService)
-        res = enabledServiceProxy(axis, setpoint)
-        return res.success
-    except rospy.ServiceException, e:
-        print "Service call failed: %s" %e
-
-
 # main
 def main():
-    rospy.init_node('smach_example_state_machine')
-    rospack = rospkg.RosPack()
-    pidPath = rospack.get_path('mission_control') + '/src/Mission/Tasks/Foo.py'
-    rospy.loginfo("Path %s", pidPath)
+	rospy.init_node('state_machine')
+	rospack = rospkg.RosPack()
+	rospy.sleep(2)	
+	
+	sway = Axis("sway")
+	surge = Axis("surge")
+	heave = Axis("heave")
+	yaw = Axis ("yaw")
 
-    '''
-    axis = "surge"
-    value = False
-    print "Requesting %s+%s"%(axis, value)
-    print "%s + %s = %s"%(axis, value, setEnabledClient(axis, value))
-    '''
-    rospy.logwarn(0)
-#    surge = Axis("surge")
-#    sway = Axis("sway")
-    heave = Axis("heave")
-#    roll = Axis("roll")
-#    pitch = Axis("pitch")
-#    yaw = Axis ("yaw")
+	heave.setEnabled(True)
+	heave.setInput("DEPTH")
+	
+	yaw.setEnabled(False)
+	yaw.setInput("IMU_POS")
+	
+	sway.setInput("IMU_POS")
+	sway.setEnabled(False)	
 
-    rospy.logwarn(1)
-    heave.setEnabled(True)
-    heave.setInput("DEPTH")
-    heave.setSetpoint(10)
-    rospy.logwarn(2)
-    heave.setZero()
-    rospy.logwarn(3)
+        #yaw.setSetpoint(0)	
+	done = False
+	direction = 1
+	timeout = 31415926
+
+	rospy.logwarn("complete loading")
+
+         ######################################## Mission code ############################################	
+
+	# Create a SMACH state machine
+	Mission = smach.StateMachine(outcomes=['success', 'abort'])
+	Mission.userdata.done = False
+	Mission.userdata.count = 0
+	Mission.userdata.numReps = 4
+	Mission.userdata.depth = 0.4
+	Mission.userdata.timeout = 234523413
+	Mission.userdata.zero = 0
+	
+	rospy.logwarn("BEFORE CONTAINER")
+	# direction:=1 for clockwise
+	gate = Gate.StateMachine(surge, sway, yaw, timeout, 2.75,direction=1)
+	buoy = Buoy.StateMachine(surge,sway,heave,yaw,timeout,-589)
+
+	# Open the container
+	with Mission:
+
+		smach.StateMachine.add('Buoy', buoy, transitions={'success':'success','abort':'abort'})											
+		# Add states to the containe
+		#smach.StateMachine.add("WaitForStart", smach_ros.MonitorState("/start", Bool, startCB), transitions={'valid':"GoToDepth", "invalid":"WaitForStart", "preempted":"WaitForStart"})
+		smach.StateMachine.add('Zero', Zero(heave, yaw), transitions={'success':'GoToDepth'})
+		smach.StateMachine.add('GoToDepth', GoToDepth(heave),
+							   transitions={'success':'CorrectToZero',
+											'abort':'abort'},
+							   remapping={'depth':'depth'})
+		smach.StateMachine.add('CorrectToZero',RotateTo(yaw),
+							transitions={'success':'Gate','abort':'abort'},
+							remapping={'timeout':'timeout','angle':'zero'})									 
+		smach.StateMachine.add('Gate', gate, transitions={'success':'Buoy','abort':'abort'})
 
 
 
-    foo = imp.load_source('Foo', pidPath)
+	###########################################Concurrence Container########################################
 
-    # Create a SMACH state machine
-    sm = smach.StateMachine(outcomes=['outcome4', 'outcome5'])
+	def childTermCB(outcome_map):
+		if outcome_map['MonitorKill'] == 'False':
+			return True
+		return False
+			 
 
-    # Open the container
-    with sm:
+	def outcomeCB(outcome_map):
+		if outcome_map['MonitorKill'] == 'False':
+			print("AAAAAAAAAAAAAAHHHHHHHHHHHHHHHH")
+			return 'kill'
+		return 'success'
 
-        # Add states to the container
-        smach.StateMachine.add('FOO', foo.Foo(heave),
-                               transitions={'outcome1':'BAR',
-                                            'outcome2':'outcome4'})
-        smach.StateMachine.add('BAR', Bar(),
-                               transitions={'outcome2':'FOO'})
+	SafeExecute = BetterConcurrence(outcomes = ['kill','abort', 'success'], default_outcome='kill', 
+			 outcome_map={'success':{'Mission':'success'}, 'abort':{'Mission': 'abort'}, 'kill':{'MonitorKill':'False'}})
+					
+	with SafeExecute:
+		BetterConcurrence.add("MonitorKill", MonitorStart(target=False))
+		BetterConcurrence.add("Mission", Mission)
+
+	
 
 
 
-    sis = smach_ros.IntrospectionServer('server_name', sm, '/SM_ROOT')
-    sis.start()
+	######################################    TOP    #########################
+	Top = smach.StateMachine(outcomes=['abort', 'success'])
+	with Top:
+		smach.StateMachine.add('WaitForStart', MonitorStart(), 
+					transitions={'True':'Run', 'False':'WaitForStart'})
+		smach.StateMachine.add("Run", SafeExecute, transitions={'success':'ResetSuccess', 'kill': 'ResetAbort', 'abort':'ResetAbort'})
+		smach.StateMachine.add("ResetAbort", Reset(), transitions={'success':'WaitForStart', 'abort':'Dead'})
+		smach.StateMachine.add("ResetSuccess", Reset(), transitions={'success':'WaitForReset', 'abort':'Dead'})
+		smach.StateMachine.add("WaitForReset", MonitorStart(target=False), transitions={'True':'WaitForReset', 'False':'WaitForStart'})
+		smach.StateMachine.add("Dead", Dead(), transitions={'success':'Dead', 'kill':'Dead'})
 
 
-    # Execute SMACH plan
-    outcome = sm.execute()
-    rospy.spin()
-    sis.stop()
+	ready = False
+        while not ready:
+                ready = rospy.wait_for_message("/start", Bool)
+                print("READY", ready)
+	rospy.logwarn("AFTER CONTAINER")
+	sis = smach_ros.IntrospectionServer('server_name', Top, '/SM_ROOT')
+	sis.start()
+	for i in range(100):
+		print("INTITALIZED")
+	# Execute SMACH plan
+        startPub = rospy.Publisher("thrustEnable", Bool, latch=True)	
+	rospy.logwarn("SHOULD HAVE PUBLISHED BY NOW")
+	yaw.setEnabled(False)
+	yaw.setControlEffort(0)
+ 	startPub.publish(data=False)	
+	outcome = Top.execute()
+	rospy.spin()
+	sis.stop()
 
 
 if __name__ == '__main__':
-    main()
+	main()

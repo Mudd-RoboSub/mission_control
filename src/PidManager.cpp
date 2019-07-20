@@ -15,7 +15,7 @@ PidManager::PidManager(ros::NodeHandle nh)
   enabledService_ = nh_.advertiseService("EnabledService", &PidManager::enabledServiceCB, this);
   inputService_ = nh_.advertiseService("InputTypeService", &PidManager::inputServiceCB, this);
   setpointService_ = nh_.advertiseService("SetpointService", &PidManager::setpointServiceCB, this);
-
+  thrustOverrideService_ = nh_.advertiseService("ThrustOverrideService", &PidManager::thrustOverrideCB, this);
 
   //pause for a bit to let the messages catch up
   ros::Duration(2).sleep();
@@ -28,6 +28,7 @@ PidManager::PidManager(ros::NodeHandle nh)
 void PidManager::setPidEnabled(const PidUtils::Axes& axis, const bool& enabled){
   selectAxis(axis).setPidEnabled(enabled);
 }
+
 
 void PidManager::setPlantState(const PidUtils::Axes& axis, const double& val){
   selectAxis(axis).setPlantState(val);
@@ -131,14 +132,18 @@ bool PidManager::setpointServiceCB(mission_control::SetpointService::Request &re
   double setpoint = req.value;
   std::transform(axis.begin(), axis.end(),axis.begin(), ::tolower);
 
+  
   if(std::find(PidUtils::AxisStrings.begin(), PidUtils::AxisStrings.end(), axis) != PidUtils::AxisStrings.end()) {
+    selectAxis(axis).setSetpoint(setpoint);
     Axis& currentAxis = selectAxis(axis);
+  
+    selectAxis(axis).setSetpoint(setpoint);
+
     if(!currentAxis.isEnabled()){
       ROS_INFO("Implicitly enabling %s pid loop in order to set the setpoint.", axis.c_str());
       currentAxis.setPidEnabled(true);
     }
 
-    selectAxis(axis).setSetpoint(setpoint);
   }
   else {
       ROS_FATAL("Axis string provided (%s) is invalid.", axis.c_str());
@@ -178,7 +183,9 @@ int main(int argc, char** argv){
   // PidManager a(nh_);
 
   PidManager b(nh_);
-  b.setPidEnabled(PidUtils::SURGE);
+  b.setPidEnabled(PidUtils::HEAVE);
+  b.setPidEnabled(PidUtils::YAW);
+
   ros::Rate r(100);
   while(ros::ok){
     ros::spinOnce();

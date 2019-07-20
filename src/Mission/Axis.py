@@ -11,6 +11,8 @@ class Axis:
     _zeros = {"IMU_POS" : 0, "IMU_ACCEL" : 0, "DEPTH" : 0, "CAM_FRONT": 0, "CAM_BOTTOM" : 0, "LOCALIZE": 0}
     plantState = 0
     _input = ""
+    setpoint = 0
+    zeroedPlantState = 0
 
     def __init__(self, name):
         self._axis = name
@@ -18,9 +20,12 @@ class Axis:
         paramName +=  name.upper()
         self._sub = rospy.Subscriber("/none", Float64, self.plantStateCallback)
 
-    def plantStateCallback(self, data):
-        self.plantState = data
+	zeroPub = rospy.Publisher("yawSetpointNorm", Float64, latch=True)
+	zeroPub.publish(data=0)	
 
+    def plantStateCallback(self, data):
+        self.plantState =  data.data 
+	self.zeroedPlantState = data.data - self._zeros[self._input]
     def updatePlantTopic(self):
         self._sub.unregister()
         paramName = "/TOPICS/"
@@ -43,7 +48,9 @@ class Axis:
         rospy.loginfo("Disabling %s control loop", self._axis)
         self.setEnabled(False);
         self._enabled = False
+        rospy.logwarn("2.375")
         rospy.wait_for_service('ThrustOverrideService')
+        rospy.logwarn("2.625")
         try:
             enabledServiceProxy = rospy.ServiceProxy('ThrustOverrideService', ThrustOverrideService)
             res = enabledServiceProxy(self._axis, val)
@@ -56,35 +63,35 @@ class Axis:
         if(not self._enabled):
             rospy.logwarn("Make sure the loop is enabled")
         rospy.wait_for_service('SetpointService')
-        try:
+	self.setpoint = val + self._zeros[self._input] 
+        rospy.loginfo("setpoint %f, plantstate %f, val %f, zero %f", float(self.setpoint), float(self.plantState), float(val), float(self._zeros[self._input]))
+	try:
             enabledServiceProxy = rospy.ServiceProxy('SetpointService', SetpointService)
-            res = enabledServiceProxy(self._axis, val)
+            res = enabledServiceProxy(self._axis, self.setpoint )
             return res.success
         except rospy.ServiceException, e:
             print "Service call failed: %s" %e
 
 
     def setZero(self, zero=None):
-        sum = 0.0
-	rospy.logwarn("HEREHEREHERHE {}".format(self.plantTopic))
-        for i in range(10):
-            sum += rospy.wait_for_message(self.plantTopic, Float64).data
-        avg = sum / 10
-        rospy.loginfo("Setting heave zero on {} to {}".format(self._input, avg))
-        self._zeros[self._input] = avg
+		sum = 0.0
+		rospy.logwarn("HEREHEREHERHE {}".format(self.plantTopic))
+		for i in range(10):
+			sum += rospy.wait_for_message(self.plantTopic, Float64).data
+		avg = sum / 10
+		rospy.loginfo("Setting heave zero on {} to {}".format(self._input, avg))
+		self._zeros[self._input] = avg
 
     def goTo(self, target, delay = 1):
-        self.setSetpoint(target + self._zeros[_input])
+        self.setSetpoint(target + self._zeros[self._input])
         tStart = rospy.get_time()
         while(rospy.get_time() - tStart < 1000*delay):
-            rospy.spinOnce()
             rospy.sleep(0.1)
 
     def increment(self, target, delay = 1):
-        self.setSetpoint(target + self.plantState)
+        self.setSetpoint(target + self.plantState + self._zeros[self._input])
         tStart = rospy.get_time()
         while(rospy.get_time() - tStart < 1000*delay):
-            rospy.spinOnce()
             rospy.sleep(0.1)
 
 
