@@ -10,63 +10,55 @@ from vision.msg import *
 from math import ceil
 
 class Localize(smach.State):
-	def __init__(self):
+	# if twoBuoy is true, then it needs two confidences. else just the confidence specificed
+	# left is the left gate
+	def __init__(self, twoBuoy,left):
 		smach.State.__init__(self,outcomes = ['success','failure'],
-					output_keys = ['angle', 'chosenBuoy'])
+					output_keys = ['angle'])
 		self.buoySub = rospy.Subscriber('buoyState', buoy, self.buoyCB)
-		
-		self.rightYaw, self.rightYawConf = None, 1
-		self.leftYaw, self.leftYawConf = None, 1		
+		self.twoBuoy=twoBuoy
+		self.left=left
+		self.firstYaw, self.firstYawConf = None, 1
+		self.rightYaw, self.rightYawConf = None, 1		
 
 	def buoyCB(self, data):
-                self.rightYaw, self.rightYawConf = data.rightYaw, data.rightYawConf
-                self.leftYaw, self.leftYawConf = data.leftYaw, data.leftYawConf
+                self.firstYaw, self.firstYawConf = data.firstYaw, data.firstYawConf
+                self.secondYaw, self.secondYawConf = data.secondYaw, data.secondYawConf
 
 	def execute(self, userdata):
-		numFound = 0
 		startTime = time()
 		rate = rospy.Rate(20)
 		while time() - startTime < 15 and not rospy.is_shutdown():
-			if self.leftYawConf > 2.75 and self.rightyawConf > 2.75:
-				numFound = 2
-				break
+			if self.twoBuoy:
+				if self.firstYawConf > 2.75 and self.firstYawConf > 2.75:
+					if self.left:
+						userdata.angle = min(self.firstYaw,self.secondYaw)
+					else:
+						userdata.angle = max(self.firstYaw,self.secondYaw)
+					return 'success'
+			else:
+				if self.firstYawConf > 2.75:
+					userdata.angle = self.firstYaw
+					return 'success'
+					
 			rate.sleep()
-		if self.leftYawConf > 2.75 and numFound != 2:
-			numFound = 1
-			# 1 for right, -1 for left
-			userdata.chosenBuoy = 1 if self.leftYaw > 0 else -1
-			userdata.angle = self.leftYaw	
-	
-		elif self.rightYawConf > 2.75 and numFound != 2:
-			numFound = 1
-			userdata.chosenBuoy = 1  if self.rightYaw > 0 else -1
-			userdata.angle = self.rightYaw
-
-		if numFound == 0:
-			return 'failure'
-		else:
-			return 'success'
+		return 'failure'
 
 class FindHeave(smach.State):
 	def __init__(self):
 		smach.State.__init__(self, outcomes=['success', 'failure', 'abort'],
 				     input_keys = ['timeout', 'target', 'inDirection'], output_keys=['direction'])
 
-                self.rightHeave, self.rightHeaveConf = None, 1
-                self.leftHeave, self.leftHeaveConf = None, 1
-
+                self.heave, self.heaveConf = None, 1
+				self.left = left
 	def buoyCB(self, data):
-                self.rightHeave, self.rightHeaveConf = data.rightHeave, data.rightHeaveConf
-                self.leftHeave, self.leftHeaveConf = data.leftHeave, data.leftHeaveConf
-	
+				
+                self.firstHeave, self.firstHeaveConf = data.firstHeave, data.firstHeaveConf
 
 	def execute(self, userdata):
 		while time() - startTime < 15 and not rospy.is_shutdown():
-			if userdata.target == -1  and self.leftHeaveConf > 2.75:
-				userdata.direction = 'up' if self.leftHeave > 0 else 'down'
-				success = True
-			elif userdata.target == 1 and self.rightHeaveConf > 2.75:
-				userdata.direction = 'up' if self.rightHeave > 0 else 'down'
+			if self.firstHeaveConf > 2.75:
+				userdata.direction = 'up' if self.firstHeave > 0 else 'down'
 				success = True
 		if not success:
 			return 'abort'
@@ -80,7 +72,8 @@ class FindHeave(smach.State):
 #class (smach.State):
 #	def __init__(self):
 #		smach.State.__init__(self,outcomes=
-def searchRoutine(yaw,initialAngle,finalAngle):
+#left is whether it is left gate. Passes to localize
+def searchRoutine(yaw,initialAngle,finalAngle,left):
 	searchSpan = finalAngle - initialAngle
 	direction = searchSpan > 0
 	searchSpan = abs(searchSpan)
@@ -95,7 +88,7 @@ def searchRoutine(yaw,initialAngle,finalAngle):
 	
 	with search:
 		container_sm = smach.StateMachine(outcomes = ['success', 'failure','abort','continue'],
-						output_keys=['outAngle', 'chosenBuoy'])
+						output_keys=['outAngle'])
 		container_sm.userdata.timeout = 500
 		container_sm.userdata.angle = 20
 		with container_sm:
@@ -105,9 +98,9 @@ def searchRoutine(yaw,initialAngle,finalAngle):
 			smach.StateMachine.add('Rotate', RotateTo(yaw,increment=True, direction=direction),
 				transitions={'success':'Localize', 'abort':'abort'},
 				remapping = {'timeout':'timeout', 'angle':'angle'})
-			smach.StateMachine.add('Localize', Localize(), 
+			smach.StateMachine.add('Localize', Localize(True, left), 
 				transitions={'success':'success', 'failure':'continue'},
-				remapping={'outAngle':'outAngle', 'chosenBuoy':'chosenBuoy'})
+				remapping={'outAngle':'outAngle'})
 		smach.Iterator.set_contained_state('SEARCH', container_sm, loop_outcomes=['continue'])
 		
 	return search
@@ -134,9 +127,9 @@ def findFirstBuoy(yaw, heave, timeout, initialAngle):
 			transitions = {'success': 'Localize', 'abort':'abort'},
 			remapping = {'timeout':'timeout', 'angle':'initialAngle'})
 
-		smach.StateMachine.add('Localize', Localize(),
+		smach.StateMachine.add('Localize', Localize(True,True),
 			transitions = {'success':'RotateToBuoy', 'failure':'SearchRotate'},
-			remapping = {'angle':'BuoyOneAngle', 'chosenBuoy':'chosenBuoy'})
+			remapping = {'angle':'leftAngle'})
 
 		smach.StateMachine.add('SearchRotate',RotateTo(yaw, increment=True),
 			transitions = {'success':'Search', 'abort':'abort'},
@@ -144,15 +137,15 @@ def findFirstBuoy(yaw, heave, timeout, initialAngle):
 
 		smach.StateMachine.add('Search', searchRoutine(yaw, 0, 180),
 			transitions = {'success':'RotateToBuoy', 'abort':'abort'},
-			remapping = {'outAngle':'BuoyOneAngle', 'chosenBuoy':'chosenBuoy'})
+			remapping = {'outAngle':'leftAngle'})
 
 		smach.StateMachine.add('RotateToBuoy', RotateTo(yaw),
 			transitions = {'success':'FindHeave', 'abort':'abort'},
-			remapping = {'timeout':'timeout', 'angle':'BuoyOneAngle'})
+			remapping = {'timeout':'timeout', 'angle':'leftAngle'})
 		
 		smach.StateMachine.add('FindHeave', FindHeave(),
 			transitions = {'success':'success', 'failure':'IncrementDepth', 'abort':'abort'},
-			remapping = {'timeout':'timeout', 'target':'chosenBuoy', 'inDirection':'direction',\
+			remapping = {'timeout':'timeout', 'inDirection':'direction',\
 				     'direction':'direction'})
 
 		smach.StateMachine.add('IncrementDepth', GoToDepth(heave),
@@ -186,7 +179,7 @@ def bumpBuoy(surge, sway, yaw, timeout):
 				smach.StateMachine.add('Move', Move(surge,sway),
 					transitions={'success':'ReLocalize'},
 					remapping = {'angle':'zero','speed':'speed','moveTime':'moveTime'})
-				smach.StateMachine.add('ReLocalize', Localize(),
+				smach.StateMachine.add('ReLocalize', Localize(False,True),
 					transitions={'success':'RotateTo', 'failure':'abort'},
 					remapping={'angle':'angle'})
 				smach.StateMachine.add('RotateTo', RotateTo(yaw),
@@ -204,7 +197,7 @@ def bumpBuoy(surge, sway, yaw, timeout):
 	return bump
 
 def findSecondBuoy(yaw, heave, timeout):
-	findBuoySmach = searchRoutine(yaw, 45, 315)
+	findBuoySmach = searchRoutine(yaw, 45, 315, False)
 
 	findSecond = smach.StateMachine(outcomes=['success','abort'])
 	findSecond.userdata.timeout = timeout
@@ -216,7 +209,7 @@ def findSecondBuoy(yaw, heave, timeout):
 	with findSecond:
 		smach.StateMachine.add("Search",findBuoySmach,
 			transitions={'success':'RotateTo','abort':'abort'},
-			remapping={'chosenBuoy':'target','outAngle':'angle'})
+			remapping={'outAngle':'angle'})
 		smach.StateMachine.add("RotateTo", RotateTo(yaw),
 			transitions={'success':'FindHeave','abort':'abort'},
 			remapping={'timeout':'timeout','angle':'angle'})
