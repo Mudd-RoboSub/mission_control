@@ -19,7 +19,7 @@ class Localize(smach.State):
 		self.twoBuoy=twoBuoy
 		self.left=left
 		self.firstYaw, self.firstYawConf = None, 1
-		self.rightYaw, self.rightYawConf = None, 1		
+		self.secondYaw, self.secondYawConf = None, 1		
 
 	def buoyCB(self, data):
                 self.firstYaw, self.firstYawConf = data.firstYaw, data.firstYawConf
@@ -30,7 +30,7 @@ class Localize(smach.State):
 		rate = rospy.Rate(20)
 		while time() - startTime < 15 and not rospy.is_shutdown():
 			if self.twoBuoy:
-				if self.firstYawConf > 2.75 and self.firstYawConf > 2.75:
+				if self.firstYawConf > 2.75 and self.secondYawConf > 2.75:
 					if self.left:
 						userdata.angle = min(self.firstYaw,self.secondYaw)
 					else:
@@ -47,7 +47,7 @@ class Localize(smach.State):
 class FindHeave(smach.State):
 	def __init__(self):
 		smach.State.__init__(self, outcomes=['success', 'failure', 'abort'],
-				     input_keys = ['timeout', 'target', 'inDirection'], output_keys=['direction'])
+				     input_keys = ['timeout', 'inDirection'], output_keys=['direction'])
 
                 self.heave, self.heaveConf = None, 1
 	def buoyCB(self, data):
@@ -215,7 +215,7 @@ def findSecondBuoy(yaw, heave, timeout):
 
                 smach.StateMachine.add('FindHeave', FindHeave(),
                         transitions = {'success':'success', 'failure':'IncrementDepth', 'abort':'abort'},
-                        remapping = {'timeout':'timeout', 'target':'chosenBuoy', 'inDirection':'direction',\
+                        remapping = {'timeout':'timeout', 'inDirection':'direction',\
                                      'direction':'direction'})
 
                 smach.StateMachine.add('IncrementDepth', GoToDepth(heave),
