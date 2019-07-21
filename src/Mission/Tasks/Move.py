@@ -26,7 +26,7 @@ class Move(smach.State):
 		self.surge.setControlEffort(surgeSpeed)
 		self.sway.setControlEffort(swaySpeed)
 		
-		rospy.sleep(moveTime)	
+		rospy.sleep(userdata.moveTime)	
 	
 		self.surge.setControlEffort(0)
 		self.sway.setControlEffort(0)

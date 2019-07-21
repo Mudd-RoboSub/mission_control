@@ -197,7 +197,7 @@ def sanityCheck(timeout,yaw):
 #maybe an abort option
 #localize as 3 localize?? need option 'failure' to redo but not sure where to add
 def approachGate( surge, sway, yaw, timeout):
-	ApproachGate = smach.StateMachine(outcomes= ['success','abort'])
+	ApproachGate = smach.StateMachine(outcomes= ['success','abort'], output_keys=['angle_out'])
 	ApproachGate.userdata.angle=0
 	ApproachGate.userdata.speed = 0.2
 	ApproachGate.userdata.moveTime = 5
@@ -209,7 +209,7 @@ def approachGate( surge, sway, yaw, timeout):
 			remapping = {'angle':'angle','speed':'speed','moveTime':'moveTime'})
 		smach.StateMachine.add('SectionID',SectionID(),
 			transitions = {'success': 'RotateToSection','failure':'Move','abort':'abort'},
-			remapping={'timeout':'timeout','angle':'angle'})
+			remapping={'timeout':'timeout','angle':'angle', 'angle':'angle_out'})
 		smach.StateMachine.add('RotateToSection', RotateTo(yaw),
 			transitions= {'success':'success', 'abort':'abort'},
 			remapping = {'timeout':'timeout', 'angle':'angle'})
@@ -236,7 +236,7 @@ def StateMachine(surge, sway, yaw, timeout,weightThreshold,direction ):
 	ApproachGate = approachGate(surge,sway,yaw,timeout)
 	GoToGate = goToGate(surge,sway, timeout)
 	
-	Gate = smach.StateMachine(outcomes = ['success','abort'])
+	Gate = smach.StateMachine(outcomes = ['success','abort'], output_keys=['angle_out'])
 	Gate.userdata.angle = None
 	Gate.userdata.timeout = timeout
 	with Gate:
@@ -249,7 +249,8 @@ def StateMachine(surge, sway, yaw, timeout,weightThreshold,direction ):
 		#smach.StateMachine.add('SanityCheck',SanityCheck,
 		#			transitions = {'success':'ApproachGate','failure':'GetLocation','abort':'abort'})
 		smach.StateMachine.add('ApproachGate',ApproachGate,
-					transitions = {'success': 'GoToGate'})
+					transitions = {'success': 'GoToGate'},
+					remapping = {'angle':'angle_out'})
 		smach.StateMachine.add('GoToGate',GoToGate,
 					transitions = {'success': 'success','abort':'abort'})
 

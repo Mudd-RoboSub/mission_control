@@ -63,28 +63,32 @@ def main():
 	Mission.userdata.depth = 0.4
 	Mission.userdata.timeout = 234523413
 	Mission.userdata.zero = 0
-	
+	Mission.userdata.false = False
+	Mission.userdata.gateAngle = 30	
+
 	rospy.logwarn("BEFORE CONTAINER")
 	# direction:=1 for clockwise
 	gate = Gate.StateMachine(surge, sway, yaw, timeout, 2.75,direction=1)
-	buoy = Buoy.StateMachine(surge,sway,heave,yaw,timeout,-589)
+	buoy = Buoy.StateMachine(surge,sway,heave,yaw,timeout)
 
 	# Open the container
 	with Mission:
 
-		smach.StateMachine.add('Buoy', buoy, transitions={'success':'success','abort':'abort'})											
 		# Add states to the containe
 		#smach.StateMachine.add("WaitForStart", smach_ros.MonitorState("/start", Bool, startCB), transitions={'valid':"GoToDepth", "invalid":"WaitForStart", "preempted":"WaitForStart"})
 		smach.StateMachine.add('Zero', Zero(heave, yaw), transitions={'success':'GoToDepth'})
 		smach.StateMachine.add('GoToDepth', GoToDepth(heave),
 							   transitions={'success':'CorrectToZero',
 											'abort':'abort'},
-							   remapping={'depth':'depth'})
+							   remapping={'depth':'depth', 'increment':'false'})
 		smach.StateMachine.add('CorrectToZero',RotateTo(yaw),
-							transitions={'success':'Gate','abort':'abort'},
+							transitions={'success':'Buoy','abort':'abort'},
 							remapping={'timeout':'timeout','angle':'zero'})									 
-		smach.StateMachine.add('Gate', gate, transitions={'success':'Buoy','abort':'abort'})
+		smach.StateMachine.add('Buoy', buoy, transitions={'success':'success','abort':'abort'},
+							remapping={'angle_in':'gateAngle'})											
 
+		smach.StateMachine.add('Gate', gate, transitions={'success':'Buoy','abort':'abort'},
+							remapping={'angle_out':'gateAngle'})
 
 
 	###########################################Concurrence Container########################################

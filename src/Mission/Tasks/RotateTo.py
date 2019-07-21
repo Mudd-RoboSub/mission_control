@@ -18,7 +18,9 @@ class RotateTo(smach.State):
     def execute(self, userdata):
 		angle = userdata.angle
 		if self.increment:
+			rospy.logwarn("Zeroed Plant State: %f", self.yaw.zeroedPlantState)
 			angle += self.yaw.zeroedPlantState
+			rospy.logwarn("ANGLE %f", angle)
 		angle *= self.direction
 		self.yaw.setSetpoint(angle)
 		loopRate = rospy.Rate(50)
