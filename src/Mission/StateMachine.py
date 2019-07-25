@@ -64,7 +64,7 @@ def main():
 	Mission.userdata.timeout = 234523413
 	Mission.userdata.zero = 0
 	Mission.userdata.false = False
-	Mission.userdata.gateAngle = 30	
+	Mission.userdata.gateAngle = 0	
 
 	rospy.logwarn("BEFORE CONTAINER")
 	# direction:=1 for clockwise
@@ -82,7 +82,7 @@ def main():
 											'abort':'abort'},
 							   remapping={'depth':'depth', 'increment':'false'})
 		smach.StateMachine.add('CorrectToZero',RotateTo(yaw),
-							transitions={'success':'Buoy','abort':'abort'},
+							transitions={'success':'Gate','abort':'abort'},
 							remapping={'timeout':'timeout','angle':'zero'})									 
 		smach.StateMachine.add('Buoy', buoy, transitions={'success':'success','abort':'abort'},
 							remapping={'angle_in':'gateAngle'})											

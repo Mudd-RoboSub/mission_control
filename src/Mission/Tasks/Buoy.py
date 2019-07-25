@@ -30,18 +30,21 @@ class Localize(smach.State):
 		rospy.sleep(1)
 		startTime = time()
 		rate = rospy.Rate(20)
-		while time() - startTime < 15 and not rospy.is_shutdown():
+		while time() - startTime < 18 and not rospy.is_shutdown():
 			rospy.loginfo("CONF LEFT %f, CONF RIGHT %f", self.firstYawConf, self.secondYawConf)
 			if self.twoBuoy:
-				if self.firstYawConf > 2.0 and self.secondYawConf > 2.0:
+				if self.firstYawConf > 13.5 and self.secondYawConf > 13.5:
 					if self.left:
-						userdata.angle = min(self.firstYaw,self.secondYaw)
+						angle = min(self.firstYaw,self.secondYaw)
+						userdata.angle = angle
 					else:
-						userdata.angle = max(self.firstYaw,self.secondYaw)
+						angle = max(self.firstYaw,self.secondYaw)
+						userdata.angle = angle
 					return 'success'
 			
 			elif self.firstYawConf > 2:
-					userdata.angle = self.firstYaw
+					angle = self.firstYaw
+					userdata.angle = angle
 					return 'success'
 			rate.sleep()
 		return 'failure'
@@ -71,7 +74,7 @@ class FindHeave(smach.State):
 		success = False
 
 		while time() - startTime < 15 and not rospy.is_shutdown():
-			if self.heaveConf > 2:
+			if self.heaveConf > 13.5:
 				
 				directionOut = 1 if self.heave > 0 else -1
 				userdata.directionOut = directionOut
@@ -96,7 +99,7 @@ def searchRoutine(yaw,initialAngle,finalAngle,left=True):
 	searchSpan = abs(searchSpan)
 	numIt = ceil(searchSpan / 20)
 	
-	search = smach.Iterator(outcomes=['success', 'abort'],input_keys=[], output_keys=[],
+	search = smach.Iterator(outcomes=['success', 'abort'],input_keys=[], output_keys=['outAngle'],
 				it= lambda: range(0, int(numIt)),
 				it_label='index',
 				exhausted_outcome='abort')
@@ -128,7 +131,7 @@ def findFirstBuoy(yaw, heave, timeout):
 	firstBuoy = smach.StateMachine(outcomes = ['success','abort'], input_keys=['angle_in'])
 	firstBuoy.userdata.timeout = timeout
 	firstBuoy.userdata.direction = None
-	firstBuoy.userdata.initialDepth = 2.5
+	firstBuoy.userdata.initialDepth = .5
 	firstBuoy.userdata.neg90 = -90
 	firstBuoy.userdata.chosenBuoy = None
 	firstBuoy.userdata.depthInc = 0.5
@@ -138,7 +141,7 @@ def findFirstBuoy(yaw, heave, timeout):
 
 	with firstBuoy:
 		smach.StateMachine.add('GoToDepth', GoToDepth(heave), 
-			transitions = {'success': 'success', 'abort':'abort'},
+			transitions = {'success': 'FirstRotate', 'abort':'abort'},
 			remapping = {'timeout':'timeout','depth':'initialDepth', 'increment':'false','direction':'true'})		
 
 		smach.StateMachine.add('FirstRotate',RotateTo(yaw,increment=True), 
@@ -179,9 +182,11 @@ def bumpBuoy(surge, sway, yaw, timeout):
 	with bump:
 		bump.userdata.back = 180
 		bump.userdata.speed = 0.25
-		bump.userdata.moveTime = 20
-
-	        it = smach.Iterator(outcomes=['success', 'abort'], input_keys=[], output_keys=[],
+		bump.userdata.backTime = 20
+		bump.userdata.zero = 0
+		bump.userdata.bumpTime = 10
+	         
+		it = smach.Iterator(outcomes=['success', 'abort'], input_keys=[], output_keys=[],
                                 it= lambda: range(0, int(numIt)),
                                 it_label='index',
                                 exhausted_outcome='success')
@@ -189,7 +194,6 @@ def bumpBuoy(surge, sway, yaw, timeout):
 			container_sm = smach.StateMachine(outcomes=['success','abort','continue'])
 		
         		container_sm.userdata.moveTime = 6
-			container_sm.userdata.backTime = container_sm.userdata.moveTime * numIt
         		container_sm.userdata.zero = 0
 	        	container_sm.userdata.speed = 0.3
 			container_sm.userdata.angle = None
@@ -201,7 +205,7 @@ def bumpBuoy(surge, sway, yaw, timeout):
 					remapping = {'angle':'zero','speed':'speed','moveTime':'moveTime'})
 				smach.StateMachine.add('ReLocalize', Localize(False,True),
 					transitions={'success':'RotateTo', 'failure':'abort'},
-					remapping={'angle':'angle'})
+					remapping={'outAngle':'angle'})
 				smach.StateMachine.add('RotateTo', RotateTo(yaw),
 					transitions={'success':'continue', 'abort':'abort'},
 					remapping={'timeout':'timeout','angle':'angle'})
@@ -211,11 +215,11 @@ def bumpBuoy(surge, sway, yaw, timeout):
 			transitions={'success':'FinalBump', 'abort':'abort'})
 		
 		smach.StateMachine.add("FinalBump", Move(surge,sway), 
-			transitions={'success':'MoveBack', 'abort':'abort'},
-			remapping={'angle':'zero','speed':'speed','moveTime':'backTime'})
+			transitions={'success':'MoveBack'},
+			remapping={'angle':'zero','speed':'speed','moveTime':'bumpTime'})
 		smach.StateMachine.add("MoveBack", Move(surge,sway), 
 			transitions={'success':'success'},
-			remapping={'angle':'back','speed':'speed','moveTime':'moveTime'})
+			remapping={'angle':'back','speed':'speed','moveTime':'backTime'})
 	return bump
 
 def findSecondBuoy(yaw, heave, timeout):
@@ -225,9 +229,9 @@ def findSecondBuoy(yaw, heave, timeout):
 	findSecond.userdata.timeout = timeout
 	findSecond.userdata.target = None
 	findSecond.userdata.angle = None
-	findSecond.userdata.direction = None
+	findSecond.userdata.direction = 0
 	findSecond.userdata.depthInc = 0.5
-
+	findSecond.userdata.true = True
 	with findSecond:
 		smach.StateMachine.add("Search",findBuoySmach,
 			transitions={'success':'RotateTo','abort':'abort'},
@@ -239,7 +243,7 @@ def findSecondBuoy(yaw, heave, timeout):
                 smach.StateMachine.add('FindHeave', FindHeave(),
                         transitions = {'success':'success', 'failure':'IncrementDepth', 'abort':'abort'},
                         remapping = {'timeout':'timeout', 'inDirection':'direction',\
-                                     'direction':'direction'})
+                                     'directionOut':'direction'})
 
                 smach.StateMachine.add('IncrementDepth', GoToDepth(heave),
                         transitions= {'success':'FindHeave', 'abort':'abort'},

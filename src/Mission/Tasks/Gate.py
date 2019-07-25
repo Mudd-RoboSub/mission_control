@@ -23,6 +23,7 @@ class Locate(smach.State):
 	def gateCB(self, data):
 		 self.leftConf = data.leftConf
 		 self.rightConf = data.rightConf
+		 self.divConf = data.divConf
 		 self.left, self.right = data.left, data.right
 	def execute(self, userdata):
 		self.gatePub.publish(True)
@@ -34,8 +35,8 @@ class Locate(smach.State):
 			countTime = time()
 			if count % 100 == 0:
 				rospy.logwarn("leftConf %f, rightConf %f, divConf %f",self.leftConf, self.rightConf, self.divConf) 
-			if countTime - startTime > 15:
-				if self.leftConf > 2.75 and self.rightConf > 2.75:
+			if countTime - startTime > 18:
+				if self.leftConf > 13.5 and self.rightConf > 13.5:
 					userdata.angle = (self.left + self.right) / 2
 					return 'success'
 				else:
@@ -76,7 +77,7 @@ class Localize(smach.State):
                 start = time()
                 self.pub.publish(data=True)
                 prevLeftConf , prevRightConf = 0,0
-                while self.leftConf < 2.75 or self.rightConf < 2.75:
+                while self.leftConf < 13.5 or self.rightConf < 13.5:
                         if(prevLeftConf != self.leftConf or prevRightConf != self.rightConf):
                                 rospy.loginfo("left conf: {} right conf: {}".format(self.leftConf, self.rightConf))
                         rospy.sleep(.01)
@@ -112,7 +113,7 @@ class SectionID(smach.State):
 	def gateCB(self,data):
 		self.gate=(data.left,data.div,data.right)
 		self.confidence = (data.leftConf,data.divConf,data.rightConf)
-	def execute(self,data):
+	def execute(self,userdata):
 		rate = rospy.Rate(20)
 		start = time()
 		self.pub.publish(data=True)
@@ -131,7 +132,7 @@ class SectionID(smach.State):
 		#to prevent spammy debug
 		prevLeftConf, prevDivConf, prevRightConf = None, None, None
 
-		while leftConf < 2.75 or rightConf <2.75 or divConf < 2.75:
+		while leftConf < 13.5 or rightConf <13.5 or divConf < 13.5:
 			count += 1
 			rate.sleep()
 			if time() - start > userdata.timeout:
@@ -146,9 +147,9 @@ class SectionID(smach.State):
 				return 'failure'
 
 		if div - left > right - div:
-			data.angle = (div+right)/2
+			userdata.angle = (div+right)/2
 		else:
-			data.angle =  (div+left)/2
+			userdata.angle =  (div+left)/2
 				
 		return 'success'
 		
@@ -156,11 +157,10 @@ class SectionID(smach.State):
 		
 # HAVE NOT IMPORT ROTATE TO
 def getLocation(timeout,weightThreshold,yaw,direction):
-	GetLocation = smach.StateMachine(outcomes=['success','abort'])
+	GetLocation = smach.StateMachine(outcomes=['success','abort'], output_keys=['angle'])
 	GetLocation.userdata.timeout = timeout
 	GetLocation.userdata.weightThreshold = weightThreshold
 	GetLocation.userdata.incrementAngle = 20
-	GetLocation.userdata.angle = None
 	with GetLocation:
 		smach.StateMachine.add('Locate',Locate(), 
 			transitions={'success':'success','failure':'RotateToFindGate'},
@@ -181,7 +181,7 @@ def sanityCheck(timeout,yaw):
 		smach.StateMachine.add('Localize',Localize(yaw),
 			transitions = {'success' : 'RotateToCheck', 'abort':'abort'},
 			remapping = {'timeout':'timeout','angle':'firstPos'})
-		smach.StateMachine.add('RotateToCheck',RotateTo(yaw),
+		smach.StateMachine.add('RotateToCheck',RotateTo(yaw,increment=True),
 			transitions = {'success' : 'ReLocalize' , 'abort' : 'abort'},
 			remapping = {'angle':'rotateToCheckAngle', 'timeout':'timeout'})
 		smach.StateMachine.add('ReLocalize', Localize(yaw),
@@ -189,7 +189,7 @@ def sanityCheck(timeout,yaw):
 			remapping = {'timeout': 'timeout', 'angle': 'secondPos'})
 		smach.StateMachine.add('Check',Check(),
 			transitions = {'success': 'GoToAngle', 'failure': 'failure'})
-		smach.StateMachine.add('GoToAngle', RotateTo(yaw),
+		smach.StateMachine.add('GoToAngle', RotateTo(yaw, increment=True),
 			transitions={'success':'success', 'abort':'abort'},
 			remapping = {'angle':'secondPos', 'timeout':'timeout'})
 	return SanityCheck
@@ -210,7 +210,7 @@ def approachGate( surge, sway, yaw, timeout):
 		smach.StateMachine.add('SectionID',SectionID(),
 			transitions = {'success': 'RotateToSection','failure':'Move','abort':'abort'},
 			remapping={'timeout':'timeout','angle':'angle', 'angle':'angle_out'})
-		smach.StateMachine.add('RotateToSection', RotateTo(yaw),
+		smach.StateMachine.add('RotateToSection', RotateTo(yaw,increment=True),
 			transitions= {'success':'success', 'abort':'abort'},
 			remapping = {'timeout':'timeout', 'angle':'angle'})
 
@@ -241,10 +241,10 @@ def StateMachine(surge, sway, yaw, timeout,weightThreshold,direction ):
 	Gate.userdata.timeout = timeout
 	with Gate:
 		smach.StateMachine.add('GetLocation',GetLocation,
-					transitions={'success':'success','abort':'abort'},
+					transitions={'success':'RotateToGate','abort':'abort'},
 					remapping={'angle':'angle'})
-		smach.StateMachine.add('RotateToGate', RotateTo(yaw),
-					transitions={'success':'success','abort':'abort'},
+		smach.StateMachine.add('RotateToGate', RotateTo(yaw, increment=True),
+					transitions={'success':'ApproachGate','abort':'abort'},
 					remapping={'timeout':'timeout','angle':'angle'})
 		#smach.StateMachine.add('SanityCheck',SanityCheck,
 		#			transitions = {'success':'ApproachGate','failure':'GetLocation','abort':'abort'})
