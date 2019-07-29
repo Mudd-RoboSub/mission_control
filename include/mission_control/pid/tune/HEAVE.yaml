@@ -4,7 +4,7 @@ HEAVE:
   IMU_POS_TOPIC: 'none'
   IMU_ACCEL: [-1,-1,-1]
   IMU_ACCEL_TOPIC: 'none'
-  DEPTH: [-0.35,-0.03,-0.11]
+  DEPTH: [-0.43,-0.02,-0.3]
   DEPTH_TOPIC: '/depth'
   CAM_FRONT: [-1,-1,-1]
   CAM_FRONT_TOPIC: 'none'

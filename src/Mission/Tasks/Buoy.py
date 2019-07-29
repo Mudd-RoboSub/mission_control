@@ -30,10 +30,10 @@ class Localize(smach.State):
 		rospy.sleep(1)
 		startTime = time()
 		rate = rospy.Rate(20)
-		while time() - startTime < 18 and not rospy.is_shutdown():
+		while time() - startTime < 30 and not rospy.is_shutdown():
 			rospy.loginfo("CONF LEFT %f, CONF RIGHT %f", self.firstYawConf, self.secondYawConf)
 			if self.twoBuoy:
-				if self.firstYawConf > 13.5 and self.secondYawConf > 13.5:
+				if self.firstYawConf > 3.35 and self.secondYawConf > 3.35:
 					if self.left:
 						angle = min(self.firstYaw,self.secondYaw)
 						userdata.angle = angle
@@ -67,19 +67,18 @@ class FindHeave(smach.State):
                 if inDirection is None:
 			inDirection = 0
 		self.resetPub.publish(data=True)
-                while self.heaveConf > 2 and not rospy.is_shutdown():
+                while self.heaveConf > 1.5 and not rospy.is_shutdown():
                         rospy.sleep(0.01)
 
 		startTime = time()
 		success = False
 
-		while time() - startTime < 15 and not rospy.is_shutdown():
-			if self.heaveConf > 13.5:
-				
-				directionOut = 1 if self.heave > 0 else -1
-				userdata.directionOut = directionOut
-				success = True
-				break
+		while time() - startTime < 7 and not rospy.is_shutdown():
+			rospy.sleep(0.1)
+					
+		directionOut = -1 if self.heave > 0 else 1
+		userdata.directionOut = directionOut
+		success = True
 		if not success:
 			return 'abort'
 		rospy.logwarn("INDIRECTION %d, DIROUT %d", inDirection, directionOut)
@@ -131,10 +130,10 @@ def findFirstBuoy(yaw, heave, timeout):
 	firstBuoy = smach.StateMachine(outcomes = ['success','abort'], input_keys=['angle_in'])
 	firstBuoy.userdata.timeout = timeout
 	firstBuoy.userdata.direction = None
-	firstBuoy.userdata.initialDepth = .5
+	firstBuoy.userdata.initialDepth = .7
 	firstBuoy.userdata.neg90 = -90
 	firstBuoy.userdata.chosenBuoy = None
-	firstBuoy.userdata.depthInc = 0.5
+	firstBuoy.userdata.depthInc = 0.2
 	firstBuoy.userdata.true = True
 	firstBuoy.userdata.false = False
 	firstBuoy.userdata.leftAngle = 0	

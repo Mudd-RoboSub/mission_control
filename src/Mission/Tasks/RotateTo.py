@@ -33,7 +33,7 @@ class RotateTo(smach.State):
 			
 			if(abs((self.yaw.plantState%360) - (self.yaw.setpoint%360)) < 2):
 				successCount += 1	
-				if(successCount > 50):
+				if(successCount > 200):
 					done = True
 			elif time() -tStart > userdata.timeout:
 				return 'abort'

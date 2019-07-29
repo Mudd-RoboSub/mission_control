@@ -18,6 +18,7 @@ from GoToDepth import *
 from RotateTo import *
 import Gate
 import Buoy
+from Move import *
 
 #services
 from mission_control.srv import *
@@ -65,7 +66,7 @@ def main():
 	Mission.userdata.zero = 0
 	Mission.userdata.false = False
 	Mission.userdata.gateAngle = 0	
-
+	Mission.userdata.speed = 0.31415
 	rospy.logwarn("BEFORE CONTAINER")
 	# direction:=1 for clockwise
 	gate = Gate.StateMachine(surge, sway, yaw, timeout, 2.75,direction=1)
@@ -82,7 +83,7 @@ def main():
 											'abort':'abort'},
 							   remapping={'depth':'depth', 'increment':'false'})
 		smach.StateMachine.add('CorrectToZero',RotateTo(yaw),
-							transitions={'success':'Gate','abort':'abort'},
+							transitions={'success':'Buoy','abort':'abort'},
 							remapping={'timeout':'timeout','angle':'zero'})									 
 		smach.StateMachine.add('Buoy', buoy, transitions={'success':'success','abort':'abort'},
 							remapping={'angle_in':'gateAngle'})											
@@ -90,6 +91,7 @@ def main():
 		smach.StateMachine.add('Gate', gate, transitions={'success':'Buoy','abort':'abort'},
 							remapping={'angle_out':'gateAngle'})
 
+		smach.StateMachine.add("DedReckon", Move(surge, sway), transitions={'success':'success'}, remapping={'angle':'zero','speed':'speed','moveTime':'timeout'})
 
 	###########################################Concurrence Container########################################
 
@@ -126,7 +128,6 @@ def main():
 		smach.StateMachine.add("ResetSuccess", Reset(), transitions={'success':'WaitForReset', 'abort':'Dead'})
 		smach.StateMachine.add("WaitForReset", MonitorStart(target=False), transitions={'True':'WaitForReset', 'False':'WaitForStart'})
 		smach.StateMachine.add("Dead", Dead(), transitions={'success':'Dead', 'kill':'Dead'})
-
 
 	ready = False
         while not ready:
