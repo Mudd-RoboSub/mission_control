@@ -258,16 +258,12 @@ def findSecondBuoy(yaw, heave, timeout):
 			transitions={'success':'RotateTo','abort':'abort'},
 			remapping={'outAngle':'angle'})
 		smach.StateMachine.add("RotateTo", RotateTo(yaw),
-			transitions={'success':'FindHeave','abort':'abort'},
+			transitions={'success':'IncrementDepth','abort':'abort'},
 			remapping={'timeout':'timeout','angle':'angle'})
 
-                smach.StateMachine.add('FindHeave', FindHeave(),
-                        transitions = {'success':'success', 'failure':'IncrementDepth', 'abort':'abort'},
-                        remapping = {'timeout':'timeout', 'inDirection':'direction',\
-                                     'directionOut':'direction'})
-
-                smach.StateMachine.add('IncrementDepth', GoToDepth(heave),
-                        transitions= {'success':'FindHeave', 'abort':'abort'},
+		# remove find heave
+        smach.StateMachine.add('IncrementDepth', GoToDepth(heave),
+                        transitions= {'success':'success', 'abort':'abort'},
                         remapping = {'depth':'depthInc', 'timeout':'timeout', 'increment':'true', 'direction':'direction'})
 
 
