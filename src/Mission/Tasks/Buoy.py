@@ -31,10 +31,14 @@ class Localize(smach.State):
 		rospy.sleep(1)
 		startTime = time()
 		rate = rospy.Rate(20)
-		while time() - startTime < 30 and not rospy.is_shutdown():
+
+		timeLimit = 5
+		weight = 6
+
+		while time() - startTime < timeLimit and not rospy.is_shutdown():
 			rospy.loginfo("Buoy Localization: First Conf: %f, Second Conf: %f", self.firstYawConf, self.secondYawConf)
 			if self.twoBuoy:
-				if self.firstYawConf > 3.35 and self.secondYawConf > 3.35:
+				if self.firstYawConf > weight and self.secondYawConf > weight:
 					rospy.loginfo("Buoy Localization: Found two targets")
 					if self.center:
 						angle = sum(self.firstYaw, self.secondYaw)/2
@@ -46,7 +50,7 @@ class Localize(smach.State):
 						userdata.angle = angle
 					return 'success'
 			
-			elif self.firstYawConf > 3.35:
+			elif self.firstYawConf > weight:
 					rospy.loginfo("Buoy Localization: Found single target")
 					angle = self.firstYaw
 					userdata.angle = angle
@@ -136,8 +140,8 @@ def searchRoutine(yaw,initialAngle,finalAngle,left=True, center=False):
 def findFirstBuoy(yaw, heave, timeout, center=False):
 	firstBuoy = smach.StateMachine(outcomes = ['success','abort'], input_keys=['angle_in'])
 	firstBuoy.userdata.timeout = timeout
-	firstBuoy.userdata.initialDepth = .7
-	firstBuoy.userdata.neg90 = -90
+	firstBuoy.userdata.initialDepth = .5
+	firstBuoy.userdata.neg90 = -70
 	firstBuoy.userdata.chosenBuoy = None
 	firstBuoy.userdata.true = True
 	firstBuoy.userdata.false = False
@@ -291,10 +295,10 @@ def StateMachine(surge, sway, heave, yaw, timeout):
                         remapping = {'angle':'zero','speed':'speed','moveTime':'moveTime'})
 
 		smach.StateMachine.add('FindFirst', findFirst,
-			transitions={'success':'FindHeave','abort':'abort'},
+			transitions={'success':'BumpIt','abort':'abort'},
 			remapping={'angle_in':'halfSpin'})
-		smach.StateMachine.add('FindHeave', findFirstHeave,
-			transitions={'success':'BumpIt','abort':'abort'}) 
+		#smach.StateMachine.add('FindHeave', findFirstHeave,
+		#	transitions={'success':'BumpIt','abort':'abort'}) 
 		smach.StateMachine.add('BumpIt', bumpIt, 
 			transitions={'success':'FindSecond','abort':'abort'})
 

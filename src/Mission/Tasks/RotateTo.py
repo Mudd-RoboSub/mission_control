@@ -17,6 +17,7 @@ class RotateTo(smach.State):
 
     def execute(self, userdata):
 		angle = userdata.angle
+		angle *= self.direction
 		if self.increment:
 			angle += self.yaw.zeroedPlantState
 		rospy.logwarn("RotateTo: angle: %f, direction: %d", angle, self.direction)
@@ -30,7 +31,7 @@ class RotateTo(smach.State):
 			
 			if(abs((self.yaw.plantState%360) - (self.yaw.setpoint%360)) < 2):
 				successCount += 1	
-				if(successCount > 200):
+				if(successCount > 50):
 					done = True
 			elif time() -tStart > userdata.timeout:
 				return 'abort'

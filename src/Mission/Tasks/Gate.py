@@ -31,13 +31,18 @@ class Locate(smach.State):
 		rate = rospy.Rate(20)
 		startTime = time()
 		count = 0
-		while time() - startTime < 24 and not rospy.is_shutdown():
+
+
+		weight = 6.5
+		timeLimit = 5
+
+		while time() - startTime < timeLimit and not rospy.is_shutdown():
 			rate.sleep()
 			countTime = time()
 			if count % 100 == 0:
 				rospy.loginfo("Gate Localize: leftConf %f, rightConf %f, divConf %f",self.leftConf, self.rightConf, self.divConf) 
-			if self.leftConf > 13 and self.rightConf > 13:
-				if self.divConf > 10:
+			if self.leftConf > weight and self.rightConf > weight:
+				if self.divConf > weight:
 					rospy.loginfo('Gate localize found divider')
 					userdata.div = True
 					leftDist = abs(self.div - self.left)
@@ -73,7 +78,7 @@ def getLocation(timeout,weightThreshold,yaw,direction):
 	GetLocation = smach.StateMachine(outcomes=['success','abort'], output_keys=['angle'])
 	GetLocation.userdata.timeout = timeout
 	GetLocation.userdata.weightThreshold = weightThreshold
-	GetLocation.userdata.incrementAngle = 20
+	GetLocation.userdata.incrementAngle = 30
 	with GetLocation:
 		smach.StateMachine.add('Locate',Locate(), 
 			transitions={'success':'success','failure':'RotateToFindGate'},
@@ -89,8 +94,8 @@ def getLocation(timeout,weightThreshold,yaw,direction):
 def approachGate( surge, sway, yaw, timeout):
 	ApproachGate = smach.StateMachine(outcomes= ['success','abort','failure'], output_keys=['angle'])
 	ApproachGate.userdata.angle=0
-	ApproachGate.userdata.speed = 0.2
-	ApproachGate.userdata.moveTime = 5
+	ApproachGate.userdata.speed = 0.4
+	ApproachGate.userdata.moveTime = 15
 	ApproachGate.userdata.timeout = timeout
 	ApproachGate.userdata.div = False
 	ApproachGate.userdata.latch = False	

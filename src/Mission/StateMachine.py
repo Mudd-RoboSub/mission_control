@@ -65,7 +65,7 @@ def main():
 	Mission.userdata.done = False
 	Mission.userdata.count = 0
 	Mission.userdata.numReps = 4
-	Mission.userdata.depth = 0.4
+	Mission.userdata.depth = 0.5
 	Mission.userdata.timeout = 234523413
 	Mission.userdata.zero = 0
 	Mission.userdata.false = False
