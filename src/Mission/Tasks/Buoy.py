@@ -9,6 +9,10 @@ from Move import *
 from vision.msg import *
 from math import ceil
 import copy 
+
+##########
+#Buoy Code
+#########
 class Localize(smach.State):
 	# if twoBuoy is true, then it needs two confidences. else just the confidence specificed
 	# left is the left gate
@@ -293,8 +297,8 @@ def StateMachine(surge, sway, heave, yaw, timeout):
 		smach.StateMachine.add('FindFirst', findFirst,
 			transitions={'success':'BumpIt','abort':'abort'},
 			remapping={'angle_in':'halfSpin'})
-		#smach.StateMachine.add('FindHeave', findFirstHeave,
-		#	transitions={'success':'BumpIt','abort':'abort'}) 
+		smach.StateMachine.add('FindHeave', findFirstHeave,
+			transitions={'success':'BumpIt','abort':'abort'}) 
 		smach.StateMachine.add('BumpIt', bumpIt, 
 			transitions={'success':'FindSecond','abort':'abort'})
 
