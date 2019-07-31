@@ -74,13 +74,13 @@ class Axis:
 
 
     def setZero(self, zero=None):
-		sum = 0.0
-		for i in range(10):
-			sum += rospy.wait_for_message(self.plantTopic, Float64).data
-		avg = sum / 10
-		rospy.loginfo("Setting heave zero on {} to {}".format(self._input, avg))
-		self._zeros[self._input] = avg
-		self.setSetpoint(0)
+        sum = 0.0
+        for i in range(10):
+		    sum += rospy.wait_for_message(self.plantTopic, Float64).data
+        avg = sum / 10
+        rospy.loginfo("Setting heave zero on {} to {}".format(self._input, avg))
+        self._zeros[self._input] = avg
+        self.setSetpoint(0)
 
     def goTo(self, target, delay = 1):
         self.setSetpoint(target + self._zeros[self._input])
