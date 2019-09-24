@@ -5,5 +5,7 @@ Readme coming soon. Email sisaacson@hmc.edu with questions. I'm happy to help yo
 The basics:
 
 -ROS Based controls and mission execution package
+
 -Runs SMACH for hirearchical execution of tasks
+
 -Six-axis PID control
